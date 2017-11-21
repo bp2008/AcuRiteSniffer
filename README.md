@@ -60,6 +60,38 @@ iptables -t mangle -L
 6) Load AcuRiteSniffer's web interface (default: http://127.0.0.1:45411/)
     * The default page of the web interface is a list of links you can use to access sensor data.  As sensors are detected, additional links are added to the page (though you must refresh the page to see them).
 
+## File Templates
+
+To facilitate integration with some 3rd-party software (notably, [Blue Iris](http://blueirissoftware.com/)), the service is capable of writing sensor data to simple text files on disk.
+
+Within the service settings, there is a button `Edit text file definitions` which allows you to teach the service how you would like these files to be written.  Consider the example configuration:
+
+```
+[24C86E000000_12345678]Temperature: ##tempf##°\nHumidity: ##humidity##\nAt ##date## ##time##
+[24C86E000000_00001234=myWindSpeed.txt]##windspeedmph## MPH
+[24C86E000000_00001234=myWindDirection.txt]##winddir##
+```
+
+The first line specifies that data from the sensor with UniqueID `24C86E000000_12345678` should be output following the template:
+
+```
+Temperature: ##tempf##°\nHumidity: ##humidity##\nAt ##date## ##time##
+```
+
+This would result in a text file named `24C86E000000_12345678.txt` with content similar to the following:
+
+```
+Temperature: 40°
+Humidity: 25
+At 2017-11-20 10:00:00 PM
+```
+
+The second line of the example configuration specifies that the wind speed from sensor `24C86E000000_00001234` should be output to a file named `myWindSpeed.txt`.
+
+The third line specifies that the wind direction from the same sensor `24C86E000000_00001234` should be output to a file named `myWindDirection.txt`.
+
+*Note: All such files are written using text encoding `Windows-1252`.*
+
 ## Building from source
 
 This project is built with Visual Studio 2017 (Community Edition).  To build from source, you will also need my general-purpose utility library, which must be downloaded separately, here: https://github.com/bp2008/BPUtil
