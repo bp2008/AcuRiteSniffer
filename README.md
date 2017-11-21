@@ -29,7 +29,7 @@ iptables -A PREROUTING -t mangle -s ipSource -j ROUTE --gw ipSniffer --tee
 
 This command says to duplicate all packets originating from IP Address `ipSource` and send a copy to the Address `ipSniffer`.  It needs to be run every time your router boots up.  There is typically more than one way to achieve this.  In my router running [Tomato firmware](http://tomato.groov.pl/), I pasted this command into Administration > Scripts > WAN Up so the command would be executed whenever my internet connection comes online.
 
-So if your SmartHUB's address is `192.168.0.135` and your PC's address is `192.168.0.100`, then you would run this command in your router at least once after your router boots up.
+So if your SmartHUB's address is `192.168.0.135` and your PC's address is `192.168.0.100`, then you would run this command:
 
 ```
 iptables -A PREROUTING -t mangle -s 192.168.0.135 -j ROUTE --gw 192.168.0.100 --tee
