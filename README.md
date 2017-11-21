@@ -59,6 +59,7 @@ iptables -t mangle -L
 5) In the service manager window, click `Install Service`, then click `Start Service`.
 6) Load AcuRiteSniffer's web interface (default: http://127.0.0.1:45411/)
     * The default page of the web interface is a list of links you can use to access sensor data.  As sensors are detected, additional links are added to the page (though you must refresh the page to see them).
+    * Sensor data is intended to be consumed in JSON format.
 
 ## File Templates
 
@@ -89,6 +90,8 @@ The third line specifies that the wind direction from the same sensor `24C86E000
 *Note 1: All such files are written using text encoding `Windows-1252`.*
 
 *Note 2: Files are saved to the `SensorData` subdirectory next to the service executable.*
+
+*Note 3: The /params page (hosted by the embedded web server) lists all the sensor UniqueIDs and the available parameters that you can use in a file template.*
 
 ## Building from source
 
