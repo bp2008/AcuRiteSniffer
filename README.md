@@ -1,5 +1,7 @@
 # AcuRiteSniffer
-Reads weather data packets sent by AcuRite SmartHUBs and makes the data accessible locally via a simple embedded web server that returns JSON.  Requires that the network be configured to mirror packets to the computer running this service.
+Reads weather data packets sent by AcuRite SmartHUBs and makes the data accessible locally via a simple embedded web server that returns JSON.
+
+For this to work, your network must be be configured to mirror packets from the SmartHUB to the computer running this service.
 
 This service is designed for people who are *very computer literate*.  If you don't know an IP address from a MAC address, you shouldn't waste your time with this project.
 
