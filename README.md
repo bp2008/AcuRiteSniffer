@@ -72,11 +72,7 @@ Within the service settings, there is a button `Edit text file definitions` whic
 [24C86E000000_00001234=myWindDirection.txt]##winddir##
 ```
 
-The first line specifies that data from the sensor with UniqueID `24C86E000000_12345678` should be output following the template:
-
-```
-Temperature: ##tempf##°\nHumidity: ##humidity##\nAt ##date## ##time##
-```
+The first line specifies that data from the sensor with UniqueID `24C86E000000_12345678` should be output following this template: `Temperature: ##tempf##°\nHumidity: ##humidity##\nAt ##date## ##time##`
 
 This would result in a text file named `24C86E000000_12345678.txt` with content similar to the following:
 
@@ -90,7 +86,9 @@ The second line of the example configuration specifies that the wind speed from 
 
 The third line specifies that the wind direction from the same sensor `24C86E000000_00001234` should be output to a file named `myWindDirection.txt`.
 
-*Note: All such files are written using text encoding `Windows-1252`.*
+*Note 1: All such files are written using text encoding `Windows-1252`.*
+
+*Note 2: Files are saved to the `SensorData` subdirectory next to the service executable.*
 
 ## Building from source
 
