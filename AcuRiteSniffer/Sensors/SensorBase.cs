@@ -250,7 +250,7 @@ namespace AcuRiteSniffer.Sensors
 			}
 		}
 
-		private static Regex rxFileTemplate = new Regex("(##([^ ]+)##)", RegexOptions.Compiled);
+		private static Regex rxFileTemplate = new Regex("(##([^\\s]+)##)", RegexOptions.Compiled & RegexOptions.Singleline);
 		public string ApplyTemplate(string template)
 		{
 			return rxFileTemplate.Replace(template.Replace("\\n", Environment.NewLine), GetMatchedValue);
