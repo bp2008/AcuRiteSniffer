@@ -1,6 +1,8 @@
 # AcuRiteSniffer
 Reads weather data packets sent by AcuRite SmartHUBs and makes the data accessible locally.  Requires that the network be configured to mirror packets to the computer running this service.
 
+This service is designed for people who are *very computer literate*.  If you don't know an IP address from a MAC address, you shouldn't waste your time with this project.
+
 ## Prerequisites
 
 You will need one AcuRite SmartHUB, some compatible sensors, and a Windows PC running this service.  You will also need to set up your network such that packets sent from the SmartHUB to AcuRite's servers are mirrored to the PC running this service.
