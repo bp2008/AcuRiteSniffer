@@ -47,6 +47,19 @@ You can list this and similar rules that have been configured using the command:
 iptables -t mangle -L
 ```
 
+## Usage
+
+1) Configure your network to mirror traffic from your SmartHUB to the PC you wish to run this service on.  There is some guidance above, but otherwise you are on your own.  Also, install WinPcap on the PC (this is used to sniff the SmartHUB's network traffic).
+2) Download AcuRiteSniffer from [the releases section](https://github.com/bp2008/AcuRiteSniffer/releases) and extract wherever you like.
+3) Run the executable.  It requires administrator permission in order to install itself as a service.
+4) When the service manager window appears, click `Edit Settings` at the bottom of the window.
+    * If desired, change the port number which the embedded web server listens on.
+    * Enter the IP address of your SmartHUB.  You'll want to create a DHCP reservation for it, in your router, if you have not already.
+    * Select the network interface that will be receiving packets from the SmartHUB.
+5) In the service manager window, click `Install Service`, then click `Start Service`.
+6) Load AcuRiteSniffer's web interface (default: http://127.0.0.1:45411/)
+    * The default page of the web interface is a list of links you can use to access sensor data.  As sensors are detected, additional links are added to the page (though you must refresh the page to see them).
+
 ## Building from source
 
 This project is built with Visual Studio 2017 (Community Edition).  To build from source, you will also need my general-purpose utility library, which must be downloaded separately, here: https://github.com/bp2008/BPUtil
