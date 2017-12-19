@@ -62,6 +62,12 @@ namespace AcuRiteSniffer
 				p.writeSuccess(contentLength: Encoding.UTF8.GetByteCount(str));
 				p.outputStream.Write(str);
 			}
+			else if (p.requestedPage == "lastrequests")
+			{
+				string str = JsonConvert.SerializeObject(lastRequests.ToArray(), Formatting.Indented);
+				p.writeSuccess("application/json", Encoding.UTF8.GetByteCount(str));
+				p.outputStream.Write(str);
+			}
 			else
 			{
 				List<DataFileTemplate> templates = Program.settings.GetSensorDataTemplates();
@@ -115,6 +121,7 @@ namespace AcuRiteSniffer
 					sb.Append(Environment.NewLine);
 					sb.Append("\t<div><a href=\"/" + template.FileName + "\">/" + template.FileName + "</a> - Get a custom text file for the sensor \"" + template.UniqueID + "\"</div>");
 				}
+				sb.Append(@"<p><a href=""/lastrequests"">/lastrequests</a> - Get the last 10 requests captured from the SmartHub.</p>");
 				sb.Append(@"
 </body>
 </html>");
@@ -131,11 +138,14 @@ namespace AcuRiteSniffer
 		protected override void stopServer()
 		{
 		}
-
+		ConcurrentQueue<string> lastRequests = new ConcurrentQueue<string>();
 		public void ReceiveData(string str)
 		{
 			try
 			{
+				lastRequests.Enqueue(str);
+				if (lastRequests.Count > 10)
+					lastRequests.TryDequeue(out string removed);
 				Match m = rxGetURL.Match(str);
 				if (m.Success)
 				{
