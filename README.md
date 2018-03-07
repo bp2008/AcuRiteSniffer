@@ -65,6 +65,10 @@ iptables -t mangle -L
     * The default page of the web interface is a list of links you can use to access sensor data.  As sensors are detected, additional links are added to the page (though you must refresh the page to see them).
     * Sensor data is intended to be consumed in JSON format.
 
+## AcuRite Access
+
+AcuRite Access is a device which replaced SmartHUBs in 2018.  It uses https for data uploads, which means we can't passively sniff the traffic.  Fortunately, it does not validate server certificates and it is possible to change the address of the server where the Access uploads data.  To use this program with AcuRite Access, configure your DHCP server to always assign the same IP address to the AcuRite Access device(s) on your LAN.  Then, in this program's service manager, add the IP addresses of the AcuRite Access device(s) and configure if necessary for https to listen on port 443 (it must be this port, and that port can't be used for anything else -- SKYPE has a bad habit of taking port 443!).  In the web interface of the AcuRite Access, use your browser's developer tools to remove the 'disabled="disabled"' attribute from the `Server Name` text field.  This will allow you to change the value in the text field, and when you save the settings it should actually take effect on the device, saving us the trouble of having to spoof the DNS records.  The default value as of March 2018 is `atlasapi.myacurite.com` in case you need to restore it later.  At this point, assuming no local firewalls are blocking the traffic, the Access device should now be communicating with this program, and this program should be proxying each web connection from the Access to the real atlasapi.myacurite.com service so your device remains fully operational.
+
 ## File Templates
 
 To facilitate integration with some 3rd-party software (notably, [Blue Iris](http://blueirissoftware.com/)), the service is capable of writing sensor data to simple text files on disk.
