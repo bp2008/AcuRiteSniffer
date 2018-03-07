@@ -28,6 +28,7 @@
 		/// </summary>
 		private void InitializeComponent()
 		{
+			this.components = new System.ComponentModel.Container();
 			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(EditSettings));
 			this.label1 = new System.Windows.Forms.Label();
 			this.txtSmartHubAddress = new System.Windows.Forms.TextBox();
@@ -38,7 +39,17 @@
 			this.label5 = new System.Windows.Forms.Label();
 			this.label7 = new System.Windows.Forms.Label();
 			this.btnTextFileDefinitions = new System.Windows.Forms.Button();
+			this.cbEasyParse = new System.Windows.Forms.CheckBox();
+			this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
+			this.txtServiceName = new System.Windows.Forms.TextBox();
+			this.label3 = new System.Windows.Forms.Label();
+			this.label6 = new System.Windows.Forms.Label();
+			this.txtAcuriteAccessList = new System.Windows.Forms.TextBox();
+			this.label8 = new System.Windows.Forms.Label();
+			this.nudHttpsPort = new System.Windows.Forms.NumericUpDown();
+			this.label9 = new System.Windows.Forms.Label();
 			((System.ComponentModel.ISupportInitialize)(this.nudPort)).BeginInit();
+			((System.ComponentModel.ISupportInitialize)(this.nudHttpsPort)).BeginInit();
 			this.SuspendLayout();
 			// 
 			// label1
@@ -110,7 +121,7 @@
 			this.label7.BackColor = System.Drawing.SystemColors.Info;
 			this.label7.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
 			this.label7.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			this.label7.Location = new System.Drawing.Point(12, 297);
+			this.label7.Location = new System.Drawing.Point(15, 380);
 			this.label7.Name = "label7";
 			this.label7.Size = new System.Drawing.Size(403, 40);
 			this.label7.TabIndex = 11;
@@ -119,7 +130,7 @@
 			// 
 			// btnTextFileDefinitions
 			// 
-			this.btnTextFileDefinitions.Location = new System.Drawing.Point(122, 233);
+			this.btnTextFileDefinitions.Location = new System.Drawing.Point(131, 333);
 			this.btnTextFileDefinitions.Name = "btnTextFileDefinitions";
 			this.btnTextFileDefinitions.Size = new System.Drawing.Size(179, 42);
 			this.btnTextFileDefinitions.TabIndex = 12;
@@ -127,11 +138,114 @@
 			this.btnTextFileDefinitions.UseVisualStyleBackColor = true;
 			this.btnTextFileDefinitions.Click += new System.EventHandler(this.btnTextFileDefinitions_Click);
 			// 
+			// cbEasyParse
+			// 
+			this.cbEasyParse.AutoSize = true;
+			this.cbEasyParse.Location = new System.Drawing.Point(12, 237);
+			this.cbEasyParse.Name = "cbEasyParse";
+			this.cbEasyParse.Size = new System.Drawing.Size(181, 17);
+			this.cbEasyParse.TabIndex = 13;
+			this.cbEasyParse.Text = "Use easy packet parsing method";
+			this.toolTip1.SetToolTip(this.cbEasyParse, "Some SmartHUBs appear to send extremely messy TCP packets.\r\n\r\nIf you end up with " +
+        "high CPU usage from this program, or partial/incorrect sensor data, try disablin" +
+        "g this.");
+			this.cbEasyParse.UseVisualStyleBackColor = true;
+			this.cbEasyParse.CheckedChanged += new System.EventHandler(this.cbEasyParse_CheckedChanged);
+			// 
+			// txtServiceName
+			// 
+			this.txtServiceName.Location = new System.Drawing.Point(188, 263);
+			this.txtServiceName.Name = "txtServiceName";
+			this.txtServiceName.Size = new System.Drawing.Size(227, 20);
+			this.txtServiceName.TabIndex = 15;
+			this.toolTip1.SetToolTip(this.txtServiceName, "The service name should be changed if running multiple instances of the service.");
+			this.txtServiceName.TextChanged += new System.EventHandler(this.txtServiceName_TextChanged);
+			// 
+			// label3
+			// 
+			this.label3.Location = new System.Drawing.Point(12, 266);
+			this.label3.Name = "label3";
+			this.label3.Size = new System.Drawing.Size(170, 13);
+			this.label3.TabIndex = 14;
+			this.label3.Text = "Service Name:";
+			this.toolTip1.SetToolTip(this.label3, "The service name should be changed if running multiple instances of the service.");
+			// 
+			// label6
+			// 
+			this.label6.Location = new System.Drawing.Point(12, 286);
+			this.label6.Name = "label6";
+			this.label6.Size = new System.Drawing.Size(403, 23);
+			this.label6.TabIndex = 16;
+			this.label6.Text = "Important: Uninstall the service before changing the name here!";
+			// 
+			// txtAcuriteAccessList
+			// 
+			this.txtAcuriteAccessList.Location = new System.Drawing.Point(165, 423);
+			this.txtAcuriteAccessList.Name = "txtAcuriteAccessList";
+			this.txtAcuriteAccessList.Size = new System.Drawing.Size(253, 20);
+			this.txtAcuriteAccessList.TabIndex = 18;
+			this.toolTip1.SetToolTip(this.txtAcuriteAccessList, "A semicolon-separated list of IP addresses of AcuRite Access devices which are se" +
+        "nding their data to this server.");
+			this.txtAcuriteAccessList.TextChanged += new System.EventHandler(this.txtAcuriteAccessList_TextChanged);
+			// 
+			// label8
+			// 
+			this.label8.Location = new System.Drawing.Point(15, 426);
+			this.label8.Name = "label8";
+			this.label8.Size = new System.Drawing.Size(144, 32);
+			this.label8.TabIndex = 17;
+			this.label8.Text = "AcuRite Access Addresses:\r\n(semicolon separated)\r\n";
+			this.toolTip1.SetToolTip(this.label8, "A semicolon-separated list of IP addresses of AcuRite Access devices which are se" +
+        "nding their data to this server.");
+			// 
+			// nudHttpsPort
+			// 
+			this.nudHttpsPort.Location = new System.Drawing.Point(328, 456);
+			this.nudHttpsPort.Maximum = new decimal(new int[] {
+            65535,
+            0,
+            0,
+            0});
+			this.nudHttpsPort.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            -2147483648});
+			this.nudHttpsPort.Name = "nudHttpsPort";
+			this.nudHttpsPort.Size = new System.Drawing.Size(88, 20);
+			this.nudHttpsPort.TabIndex = 19;
+			this.toolTip1.SetToolTip(this.nudHttpsPort, "If -1, the server will not listen for https connections.  Should be set to 443 if" +
+        " using AcuRite Access proxying.");
+			this.nudHttpsPort.Value = new decimal(new int[] {
+            1,
+            0,
+            0,
+            -2147483648});
+			this.nudHttpsPort.ValueChanged += new System.EventHandler(this.nudHttpsPort_ValueChanged);
+			// 
+			// label9
+			// 
+			this.label9.Location = new System.Drawing.Point(13, 458);
+			this.label9.Name = "label9";
+			this.label9.Size = new System.Drawing.Size(309, 13);
+			this.label9.TabIndex = 20;
+			this.label9.Text = "Listen for https connections on port:";
+			this.toolTip1.SetToolTip(this.label9, "If -1, the server will not listen for https connections.  Should be set to 443 if" +
+        " using AcuRite Access proxying.");
+			// 
 			// EditSettings
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.ClientSize = new System.Drawing.Size(427, 347);
+			this.ClientSize = new System.Drawing.Size(427, 483);
+			this.Controls.Add(this.nudHttpsPort);
+			this.Controls.Add(this.label9);
+			this.Controls.Add(this.txtAcuriteAccessList);
+			this.Controls.Add(this.label8);
+			this.Controls.Add(this.label6);
+			this.Controls.Add(this.txtServiceName);
+			this.Controls.Add(this.label3);
+			this.Controls.Add(this.cbEasyParse);
 			this.Controls.Add(this.btnTextFileDefinitions);
 			this.Controls.Add(this.label7);
 			this.Controls.Add(this.label5);
@@ -146,6 +260,7 @@
 			this.Text = "Restart service after changing settings";
 			this.Load += new System.EventHandler(this.EditSettings_Load);
 			((System.ComponentModel.ISupportInitialize)(this.nudPort)).EndInit();
+			((System.ComponentModel.ISupportInitialize)(this.nudHttpsPort)).EndInit();
 			this.ResumeLayout(false);
 			this.PerformLayout();
 
@@ -162,5 +277,14 @@
 		private System.Windows.Forms.Label label5;
 		private System.Windows.Forms.Label label7;
 		private System.Windows.Forms.Button btnTextFileDefinitions;
+		private System.Windows.Forms.CheckBox cbEasyParse;
+		private System.Windows.Forms.ToolTip toolTip1;
+		private System.Windows.Forms.TextBox txtServiceName;
+		private System.Windows.Forms.Label label3;
+		private System.Windows.Forms.Label label6;
+		private System.Windows.Forms.TextBox txtAcuriteAccessList;
+		private System.Windows.Forms.Label label8;
+		private System.Windows.Forms.NumericUpDown nudHttpsPort;
+		private System.Windows.Forms.Label label9;
 	}
 }

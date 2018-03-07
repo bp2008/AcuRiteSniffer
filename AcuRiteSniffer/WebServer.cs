@@ -15,15 +15,18 @@ namespace AcuRiteSniffer
 	public class WebServer : HttpServer
 	{
 		ConcurrentDictionary<string, SensorBase> sensorDataCollection = new ConcurrentDictionary<string, SensorBase>();
-		Regex rxGetURL = new Regex("GET (/weatherstation/updateweatherstation\\?[^ ]*?) HTTP/1\\.", RegexOptions.Compiled & RegexOptions.Singleline);
+		Regex rxGetURL = new Regex("(GET|POST) (/weatherstation/updateweatherstation\\?[^ ]*?) HTTP/1\\.", RegexOptions.Compiled & RegexOptions.Singleline);
 
-		public WebServer(int port = 45411) : base(port)
+		public WebServer(int port = 45411, int httpsPort = -1) : base(port, httpsPort)
 		{
 		}
 
 		public override void handleGETRequest(HttpProcessor p)
 		{
-			if (p.requestedPage == "json")
+
+			if (HandleRequestFromAcuriteAccessDevice(p))
+				return;
+			else if (p.requestedPage == "json")
 			{
 				List<SensorBase> sensors = new List<SensorBase>();
 				string uniqueId = p.GetParam("uniqueid");
@@ -36,7 +39,7 @@ namespace AcuRiteSniffer
 					foreach (SensorBase sensor in sensorDataCollection.Values)
 						sensors.Add(sensor);
 				string str = JsonConvert.SerializeObject(sensors.OrderBy(s => s.UniqueID));
-				p.writeSuccess("application/json", Encoding.UTF8.GetByteCount(str));
+				p.writeSuccess("application/json", HttpProcessor.Utf8NoBOM.GetByteCount(str));
 				p.outputStream.Write(str);
 			}
 			else if (p.requestedPage == "params")
@@ -59,13 +62,19 @@ namespace AcuRiteSniffer
 					sb.Append("<br><br>");
 				}
 				string str = sb.ToString();
-				p.writeSuccess(contentLength: Encoding.UTF8.GetByteCount(str));
+				p.writeSuccess(contentLength: HttpProcessor.Utf8NoBOM.GetByteCount(str));
 				p.outputStream.Write(str);
 			}
 			else if (p.requestedPage == "lastrequests")
 			{
 				string str = JsonConvert.SerializeObject(lastRequests.ToArray(), Formatting.Indented);
-				p.writeSuccess("application/json", Encoding.UTF8.GetByteCount(str));
+				p.writeSuccess("application/json", HttpProcessor.Utf8NoBOM.GetByteCount(str));
+				p.outputStream.Write(str);
+			}
+			else if (p.requestedPage == "lastacuriteaccessrequests")
+			{
+				string str = "[\r\n" + string.Join("]\r\n\r\n***************************\r\n\r\n[\r\n", lastAcuriteAccessRequests.Select(i => i.ToString())) + "\r\n]\r\n";
+				p.writeSuccess("text/plain", HttpProcessor.Utf8NoBOM.GetByteCount(str));
 				p.outputStream.Write(str);
 			}
 			else
@@ -122,22 +131,62 @@ namespace AcuRiteSniffer
 					sb.Append("\t<div><a href=\"/" + template.FileName + "\">/" + template.FileName + "</a> - Get a custom text file for the sensor \"" + template.UniqueID + "\"</div>");
 				}
 				sb.Append(@"<p><a href=""/lastrequests"">/lastrequests</a> - Get the last 10 requests captured from the SmartHub.</p>");
+				sb.Append(@"<p><a href=""/lastacuriteaccessrequests"">/lastacuriteaccessrequests</a> - Get the last 10 requests captured and proxied from configured AcuRite Access IP Addresses.</p>");
 				sb.Append(@"
 </body>
 </html>");
 				string str = sb.ToString();
-				p.writeSuccess(contentLength: Encoding.UTF8.GetByteCount(str));
+				p.writeSuccess(contentLength: HttpProcessor.Utf8NoBOM.GetByteCount(str));
 				p.outputStream.Write(str);
 			}
 		}
 
 		public override void handlePOSTRequest(HttpProcessor p, StreamReader inputData)
 		{
+			if (HandleRequestFromAcuriteAccessDevice(p))
+				return;
 		}
-
 		protected override void stopServer()
 		{
 		}
+
+		ConcurrentQueue<ProxyDataBuffer> lastAcuriteAccessRequests = new ConcurrentQueue<ProxyDataBuffer>();
+		/// <summary>
+		/// If the remote IP address is that of a known Acurite Access device, we will sniff whatever data we want from it and proxy the request to Acurite.
+		/// </summary>
+		/// <param name="p"></param>
+		/// <returns></returns>
+		private bool HandleRequestFromAcuriteAccessDevice(HttpProcessor p)
+		{
+			if (Program.settings.GetAcuriteAccessIPs().Contains(p.RemoteIPAddress))
+			{
+				ProxyDataBuffer proxiedDataBuffer = new ProxyDataBuffer();
+				p.ProxyTo("https://atlasapi.myacurite.com" + p.request_url.PathAndQuery, 15000, true, proxiedDataBuffer);
+
+				lastAcuriteAccessRequests.Enqueue(proxiedDataBuffer);
+				if (lastAcuriteAccessRequests.Count > 10)
+					lastAcuriteAccessRequests.TryDequeue(out ProxyDataBuffer removed);
+
+				foreach (string str in proxiedDataBuffer.Items.Select(i => i.PayloadAsString))
+				{
+					Match m = rxGetURL.Match(str);
+					if (m.Success)
+					{
+						SensorBase sensorData = new SensorBase(m.Groups[2].Value);
+						sensorDataCollection[sensorData.UniqueID] = sensorData;
+						List<DataFileTemplate> templates = Program.settings.GetSensorDataTemplates();
+						foreach (DataFileTemplate template in templates)
+						{
+							if (sensorData.UniqueID == template.UniqueID)
+								sensorData.WriteFile(template);
+						}
+					}
+				}
+				return true;
+			}
+			return false;
+		}
+
 		ConcurrentQueue<string> lastRequests = new ConcurrentQueue<string>();
 		public void ReceiveData(string str)
 		{
@@ -149,7 +198,7 @@ namespace AcuRiteSniffer
 				Match m = rxGetURL.Match(str);
 				if (m.Success)
 				{
-					SensorBase sensorData = new SensorBase(m.Groups[1].Value);
+					SensorBase sensorData = new SensorBase(m.Groups[2].Value);
 					sensorDataCollection[sensorData.UniqueID] = sensorData;
 					List<DataFileTemplate> templates = Program.settings.GetSensorDataTemplates();
 					foreach (DataFileTemplate template in templates)

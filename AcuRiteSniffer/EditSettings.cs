@@ -31,6 +31,12 @@ namespace AcuRiteSniffer
 					Program.settings.myNetworkInterfaceIndex = 0;
 				cbInterface.SelectedIndex = Program.settings.myNetworkInterfaceIndex;
 			}
+
+			cbEasyParse.Checked = Program.settings.easyParseMethod;
+			txtServiceName.Text = Program.settings.serviceName;
+
+			txtAcuriteAccessList.Text = Program.settings.accessIpsSemicolonSeparated;
+			nudHttpsPort.Value = Program.settings.myHttpsPort;
 		}
 
 		private void nudPort_ValueChanged(object sender, EventArgs e)
@@ -62,6 +68,30 @@ namespace AcuRiteSniffer
 		{
 			TextFileDefinitionEditor editor = new TextFileDefinitionEditor();
 			editor.ShowDialog();
+		}
+
+		private void cbEasyParse_CheckedChanged(object sender, EventArgs e)
+		{
+			Program.settings.easyParseMethod = cbEasyParse.Checked;
+			Program.settings.Save(Program.settingsPath);
+		}
+
+		private void txtServiceName_TextChanged(object sender, EventArgs e)
+		{
+			Program.settings.serviceName = txtServiceName.Text;
+			Program.settings.Save(Program.settingsPath);
+		}
+
+		private void txtAcuriteAccessList_TextChanged(object sender, EventArgs e)
+		{
+			Program.settings.accessIpsSemicolonSeparated = txtAcuriteAccessList.Text;
+			Program.settings.Save(Program.settingsPath);
+		}
+
+		private void nudHttpsPort_ValueChanged(object sender, EventArgs e)
+		{
+			Program.settings.myHttpsPort = (int)nudHttpsPort.Value;
+			Program.settings.Save(Program.settingsPath);
 		}
 	}
 }

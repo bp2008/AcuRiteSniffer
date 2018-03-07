@@ -48,9 +48,14 @@ namespace AcuRiteSniffer.Sensors
 		public readonly string Model;
 
 		/// <summary>
-		/// Batery level "normal" is normal.  It is unknown what low battery status looks like.
+		/// Battery level "normal" is normal.  It is unknown what low battery status looks like.
 		/// </summary>
 		public readonly string Battery;
+
+		/// <summary>
+		/// Battery level of the AcuRite Access device.  Battery level "normal" is normal.  It is unknown what low battery status looks like.
+		/// </summary>
+		public readonly string HubBattery;
 
 		/// <summary>
 		/// Signal strength (from 1 to 5?).
@@ -141,6 +146,9 @@ namespace AcuRiteSniffer.Sensors
 			UniqueID = MAC + "_" + ID;
 			Model = GetString("mt");
 			Battery = GetString("battery");
+			if (string.IsNullOrWhiteSpace(Battery))
+				Battery = GetString("sensorbattery");
+			HubBattery = GetString("hubbattery");
 			SignalStrength = GetInt("rssi");
 			BarometricPressure = GetDouble("baromin");
 
@@ -216,10 +224,7 @@ namespace AcuRiteSniffer.Sensors
 				{
 					string key = Uri.UnescapeDataString(argument[0]);
 					key = key.ToLower();
-					if (raw_arguments.TryGetValue(key, out string existingValue))
-						raw_arguments[key] = existingValue + "," + Uri.UnescapeDataString(argument[1]);
-					else
-						raw_arguments[key] = Uri.UnescapeDataString(argument[1]);
+					raw_arguments[key] = Uri.UnescapeDataString(argument[1]);
 				}
 			}
 			if (hash != null)

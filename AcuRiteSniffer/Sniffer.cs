@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -98,22 +99,60 @@ namespace AcuRiteSniffer
 									&& packet.Ethernet.IpV4.Tcp.DestinationPort == 80
 								select packet;
 
-					StringBuilder sb = new StringBuilder();
-					foreach (Packet packet in query)
+					if (Program.settings.easyParseMethod)
 					{
-						// Add lengths of all headers together: ethernet, ipv4, and udp
-						TcpDatagram tcp = packet.Ethernet.IpV4.Tcp;
-						Datagram datagram = tcp.Payload;
-						if (tcp.SequenceNumber == tcp.NextSequenceNumber)
+						StringBuilder sb = new StringBuilder();
+						foreach (Packet packet in query)
 						{
-							if (sb.Length > 0)
+							// Add lengths of all headers together: ethernet, ipv4, and udp
+							TcpDatagram tcp = packet.Ethernet.IpV4.Tcp;
+							Datagram datagram = tcp.Payload;
+							if (tcp.SequenceNumber == tcp.NextSequenceNumber)
 							{
-								onRequestReceived(this, sb.ToString());
-								sb.Clear();
+								if (sb.Length > 0)
+								{
+									onRequestReceived(this, sb.ToString());
+									sb.Clear();
+								}
 							}
+							else
+								sb.Append(Encoding.ASCII.GetString(datagram.ToArray()));
 						}
-						else
-							sb.Append(Encoding.ASCII.GetString(datagram.ToArray()));
+					}
+					else
+					{
+						SortedList<uint, Datagram> sortedDatagrams = new SortedList<uint, Datagram>();
+						string endString = "Connection: close\r\n\r\n";
+						ulong lastSequenceNumber = ulong.MaxValue;
+						Datagram lastDatagram = null;
+						foreach (Packet packet in query)
+						{
+							TcpDatagram tcp = packet.Ethernet.IpV4.Tcp;
+							if (tcp.SequenceNumber != lastSequenceNumber && lastDatagram != null)
+							{
+								lastSequenceNumber = tcp.SequenceNumber;
+								string str = Encoding.ASCII.GetString(lastDatagram.ToArray());
+								if (!string.IsNullOrEmpty(str))
+								{
+									if (str.Contains(endString))
+									{
+										StringBuilder sb = new StringBuilder();
+										foreach (Datagram dgram in sortedDatagrams.Values)
+											if (dgram.Length > 0)
+												sb.Append(Encoding.ASCII.GetString(dgram.ToArray()));
+										if (sb.Length > 0)
+										{
+											string result = sb.ToString();
+											onRequestReceived(this, result);
+										}
+										sortedDatagrams.Clear();
+										continue;
+									}
+								}
+							}
+							sortedDatagrams[tcp.SequenceNumber] = tcp.Payload;
+							lastDatagram = tcp.Payload;
+						}
 					}
 				}
 			}
@@ -122,7 +161,7 @@ namespace AcuRiteSniffer
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine(ex.ToString());
+				Logger.Debug(ex);
 			}
 		}
 

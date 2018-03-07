@@ -33,11 +33,14 @@ namespace AcuRiteSniffer
 			if (Environment.UserInteractive)
 			{
 				string Title = "AcuRiteSniffer " + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString() + " Service Manager";
-				string ServiceName = "AcuRiteSniffer";
-				ButtonDefinition btnRegKey = new ButtonDefinition("Test Service (Start)", btnTestWebServer_Click);
+				string ServiceName = settings.serviceName;
+				ButtonDefinition btnTestWebServer = new ButtonDefinition("Test Service (Start)", btnTestWebServer_Click);
 				ButtonDefinition btnEditSettings = new ButtonDefinition("Edit Settings", btnEditSettings_Click);
 
-				System.Windows.Forms.Application.Run(new ServiceManager(Title, ServiceName, new ButtonDefinition[] { btnRegKey, btnEditSettings }));
+				if (System.Diagnostics.Debugger.IsAttached)
+					btnTestWebServer_Click(btnTestWebServer, null);
+
+				System.Windows.Forms.Application.Run(new ServiceManager(Title, ServiceName, new ButtonDefinition[] { btnTestWebServer, btnEditSettings }));
 
 				if (svc != null)
 					svc.DoStop();
@@ -54,18 +57,23 @@ namespace AcuRiteSniffer
 		}
 		private static void btnTestWebServer_Click(object sender, EventArgs e)
 		{
+			string newLabel;
 			if (svc == null)
 			{
 				svc = new MainSvc();
 				svc.DoStart();
-				((Button)sender).Text = "Test Service (Stop)";
+				newLabel = "Test Service (Stop)";
 			}
 			else
 			{
 				svc.DoStop();
 				svc = null;
-				((Button)sender).Text = "Test Service (Start)";
+				newLabel = "Test Service (Start)";
 			}
+			if (sender is ButtonDefinition)
+				((ButtonDefinition)sender).Text = newLabel;
+			else
+				((Button)sender).Text = newLabel;
 		}
 		private static void btnEditSettings_Click(object sender, EventArgs e)
 		{

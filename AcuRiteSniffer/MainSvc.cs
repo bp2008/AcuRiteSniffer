@@ -36,7 +36,7 @@ namespace AcuRiteSniffer
 			
 			Program.settings.Load(Program.settingsPath);
 
-			svr = new WebServer(Program.settings.myWebPort);
+			svr = new WebServer(Program.settings.myWebPort, Program.settings.myHttpsPort);
 			svr.Start();
 			sniffer = new Sniffer(Program.settings.smartHubIp, Program.settings.myNetworkInterfaceIndex);
 			sniffer.onRequestReceived += Sniffer_onRequestReceived;
