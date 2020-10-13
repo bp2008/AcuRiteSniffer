@@ -158,7 +158,7 @@ namespace AcuRiteSniffer
 		/// <returns></returns>
 		private bool HandleRequestFromAcuriteAccessDevice(HttpProcessor p)
 		{
-			if (Program.settings.GetAcuriteAccessIPs().Contains(p.RemoteIPAddress))
+			if (Program.settings.GetAcuriteAccessIPs().Contains(p.RemoteIPAddressStr))
 			{
 				ProxyDataBuffer proxiedDataBuffer = new ProxyDataBuffer();
 				p.ProxyTo("https://atlasapi.myacurite.com" + p.request_url.PathAndQuery, 15000, true, proxiedDataBuffer);

@@ -108,9 +108,39 @@ namespace AcuRiteSniffer.Sensors
 		public readonly int WindSpeed;
 
 		/// <summary>
-		/// Wind direction in degrees.  It is unclear what this is relative to.
+		/// Wind speed in MPH averaged over some time.
+		/// </summary>
+		public readonly int WindSpeedAverage;
+
+		/// <summary>
+		/// Wind speed in KPH averaged over some time.
+		/// </summary>
+		public readonly int WindSpeedAverageKph;
+
+		/// <summary>
+		/// Wind speed in KPH.
+		/// </summary>
+		public readonly int WindSpeedKph;
+
+		/// <summary>
+		/// Wind direction in degrees (absolute bearing where north is 0, east is 90, and so on).
 		/// </summary>
 		public readonly int WindDirection;
+
+		/// <summary>
+		/// Wind speed in MPH during gusts.
+		/// </summary>
+		public readonly int WindGustSpeed;
+
+		/// <summary>
+		/// Wind speed in KPH during gusts.
+		/// </summary>
+		public readonly int WindGustSpeedKph;
+
+		/// <summary>
+		/// Wind direction in degrees (absolute bearing where north is 0, east is 90, and so on) during gusts.
+		/// </summary>
+		public readonly int WindGustDirection;
 
 		/// <summary>
 		/// Rainfall in inches, resets periodically.
@@ -126,6 +156,26 @@ namespace AcuRiteSniffer.Sensors
 		/// Dew point in degrees fahrenheit.
 		/// </summary>
 		public readonly int DewPointF;
+
+		/// <summary>
+		/// Rough wind direction on a compass rose.
+		/// </summary>
+		public readonly CompassDirection WindDirectionCompass;
+
+		/// <summary>
+		/// Rough wind direction on a compass rose during gusts.
+		/// </summary>
+		public readonly CompassDirection WindGustDirectionCompass;
+
+		/// <summary>
+		/// Description of the wind using MPH. E.g. "Calm" or "7 MPH ENE, gusting to 12"
+		/// </summary>
+		public readonly string WindDescriptionMph;
+
+		/// <summary>
+		/// Description of the wind using KPH. E.g. "Calm" or "7 KPH ENE, gusting to 12"
+		/// </summary>
+		public readonly string WindDescriptionKph;
 
 
 		[JsonIgnore]
@@ -161,10 +211,88 @@ namespace AcuRiteSniffer.Sensors
 			Check = GetInt("check");
 			Water = GetInt("water");
 			WindSpeed = GetInt("windspeedmph");
+			if (raw_arguments.ContainsKey("windspeedkph"))
+				WindSpeedKph = GetInt("windspeedkph");
+			else
+			{
+				WindSpeedKph = (int)(WindSpeed * 1.60934);
+				raw_arguments["windspeedkph"] = WindSpeedKph.ToString();
+			}
 			WindDirection = GetInt("winddir");
+			WindGustSpeed = GetInt("windgustmph");
+			if (raw_arguments.ContainsKey("windgustkph"))
+				WindGustSpeedKph = GetInt("windgustkph");
+			else
+			{
+				WindGustSpeedKph = (int)(WindGustSpeed * 1.60934);
+				raw_arguments["windgustkph"] = WindGustSpeedKph.ToString();
+			}
+			WindGustDirection = GetInt("windgustdir");
+			WindSpeedAverage = GetInt("windspeedavgmph");
+			if (raw_arguments.ContainsKey("windspeedavgkph"))
+				WindSpeedKph = GetInt("windspeedavgkph");
+			else
+			{
+				WindSpeedAverageKph = (int)(WindSpeedAverage * 1.60934);
+				raw_arguments["windspeedavgkph"] = WindSpeedAverageKph.ToString();
+			}
 			RainRecent = GetDouble("rainin");
 			RainDaily = GetDouble("dailyrainin");
 			DewPointF = GetInt("dewptf");
+
+			WindDirectionCompass = Compass.GetCompassDirection(WindDirection);
+			raw_arguments["winddircompass"] = WindDirectionCompass.ToString();
+
+			WindGustDirectionCompass = Compass.GetCompassDirection(WindGustDirection);
+			raw_arguments["windgustdircompass"] = WindGustDirectionCompass.ToString();
+
+
+			StringBuilder windDescriptionMph = new StringBuilder();
+			StringBuilder windDescriptionKph = new StringBuilder();
+			bool hasDirection = false;
+			if (WindSpeed > 0)
+			{
+				windDescriptionMph.Append(WindSpeed).Append(" MPH");
+				windDescriptionKph.Append(WindSpeedKph).Append(" KPH");
+				string direction = "";
+				if (raw_arguments.ContainsKey("winddir"))
+				{
+					direction = " " + WindDirectionCompass.ToString();
+					hasDirection = true;
+				}
+				windDescriptionMph.Append(direction);
+				windDescriptionKph.Append(direction);
+			}
+			if (WindGustSpeed > 0)
+			{
+				if (windDescriptionMph.Length > 0)
+				{
+					windDescriptionMph.Append(", ");
+					windDescriptionKph.Append(", ");
+				}
+				windDescriptionMph.Append("gusting to ").Append(WindGustSpeed);
+				windDescriptionKph.Append("gusting to ").Append(WindGustSpeedKph);
+				if (raw_arguments.ContainsKey("windgustdir"))
+				{
+					if (!hasDirection || WindGustDirectionCompass != WindDirectionCompass)
+					{
+						windDescriptionMph.Append(" ").Append(WindGustDirectionCompass.ToString());
+						windDescriptionKph.Append(" ").Append(WindGustDirectionCompass.ToString());
+					}
+				}
+				else if (!hasDirection && raw_arguments.ContainsKey("winddir"))
+				{
+					windDescriptionMph.Append(" ").Append(WindDirectionCompass.ToString());
+					windDescriptionKph.Append(" ").Append(WindDirectionCompass.ToString());
+				}
+			}
+			if (windDescriptionMph.Length == 0)
+			{
+				windDescriptionMph.Append("Calm");
+				windDescriptionKph.Append("Calm");
+			}
+			raw_arguments["winddescriptionmph"] = windDescriptionMph.ToString();
+			raw_arguments["winddescriptionkph"] = windDescriptionKph.ToString();
 		}
 		protected string GetString(string key)
 		{
