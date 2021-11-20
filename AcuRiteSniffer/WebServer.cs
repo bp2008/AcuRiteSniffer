@@ -39,7 +39,7 @@ namespace AcuRiteSniffer
 					foreach (SensorBase sensor in sensorDataCollection.Values)
 						sensors.Add(sensor);
 				string str = JsonConvert.SerializeObject(sensors.OrderBy(s => s.UniqueID));
-				p.writeSuccess("application/json", HttpProcessor.Utf8NoBOM.GetByteCount(str));
+				p.writeSuccess("application/json", HttpProcessor.Utf8NoBOM.GetByteCount(str), additionalHeaders: getAdditionalHeaders());
 				p.outputStream.Write(str);
 			}
 			else if (p.requestedPage == "params")
@@ -62,19 +62,19 @@ namespace AcuRiteSniffer
 					sb.Append("<br><br>");
 				}
 				string str = sb.ToString();
-				p.writeSuccess(contentLength: HttpProcessor.Utf8NoBOM.GetByteCount(str));
+				p.writeSuccess(contentLength: HttpProcessor.Utf8NoBOM.GetByteCount(str), additionalHeaders: getAdditionalHeaders());
 				p.outputStream.Write(str);
 			}
 			else if (p.requestedPage == "lastrequests")
 			{
 				string str = JsonConvert.SerializeObject(lastRequests.ToArray(), Formatting.Indented);
-				p.writeSuccess("application/json", HttpProcessor.Utf8NoBOM.GetByteCount(str));
+				p.writeSuccess("application/json", HttpProcessor.Utf8NoBOM.GetByteCount(str), additionalHeaders: getAdditionalHeaders());
 				p.outputStream.Write(str);
 			}
 			else if (p.requestedPage == "lastacuriteaccessrequests")
 			{
 				string str = "[\r\n" + string.Join("]\r\n\r\n***************************\r\n\r\n[\r\n", lastAcuriteAccessRequests.Select(i => i.ToString())) + "\r\n]\r\n";
-				p.writeSuccess("text/plain", HttpProcessor.Utf8NoBOM.GetByteCount(str));
+				p.writeSuccess("text/plain", HttpProcessor.Utf8NoBOM.GetByteCount(str), additionalHeaders: getAdditionalHeaders());
 				p.outputStream.Write(str);
 			}
 			else
@@ -88,7 +88,7 @@ namespace AcuRiteSniffer
 						FileInfo fi = new FileInfo("SensorData/" + template.FileName);
 						if (fi.Exists)
 						{
-							p.writeSuccess("text/plain; charset=UTF-8", fi.Length);
+							p.writeSuccess("text/plain; charset=UTF-8", fi.Length, additionalHeaders: getAdditionalHeaders());
 							p.outputStream.Write(File.ReadAllText(fi.FullName, Encoding.GetEncoding(1252)));
 						}
 						else
@@ -136,9 +136,16 @@ namespace AcuRiteSniffer
 </body>
 </html>");
 				string str = sb.ToString();
-				p.writeSuccess(contentLength: HttpProcessor.Utf8NoBOM.GetByteCount(str));
+				p.writeSuccess(contentLength: HttpProcessor.Utf8NoBOM.GetByteCount(str), additionalHeaders: getAdditionalHeaders());
 				p.outputStream.Write(str);
 			}
+		}
+
+		private List<KeyValuePair<string, string>> getAdditionalHeaders()
+		{
+			List<KeyValuePair<string, string>> headers = new List<KeyValuePair<string, string>>();
+			headers.Add(new KeyValuePair<string, string>("Access-Control-Allow-Origin", "*"));
+			return headers;
 		}
 
 		public override void handlePOSTRequest(HttpProcessor p, StreamReader inputData)
