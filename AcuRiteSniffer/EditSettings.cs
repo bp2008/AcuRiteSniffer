@@ -22,21 +22,15 @@ namespace AcuRiteSniffer
 		{
 			nudPort.Value = Program.settings.myWebPort;
 
-			txtSmartHubAddress.Text = Program.settings.smartHubIp;
-
-			cbInterface.Items.AddRange(Sniffer.GetNetworkAdapterNames());
-			if (cbInterface.Items.Count > 0)
-			{
-				if (Program.settings.myNetworkInterfaceIndex >= cbInterface.Items.Count)
-					Program.settings.myNetworkInterfaceIndex = 0;
-				cbInterface.SelectedIndex = Program.settings.myNetworkInterfaceIndex;
-			}
-
-			cbEasyParse.Checked = Program.settings.easyParseMethod;
 			txtServiceName.Text = Program.settings.serviceName;
 
 			txtAcuriteAccessList.Text = Program.settings.accessIpsSemicolonSeparated;
 			nudHttpsPort.Value = Program.settings.myHttpsPort;
+
+			txtMqttHost.Text = Program.settings.mqttHost;
+			nudMqttPort.Value = Program.settings.mqttTcpPort;
+			txtMqttUser.Text = Program.settings.mqttUser;
+			txtMqttPass.Text = Program.settings.mqttPass;
 		}
 
 		private void nudPort_ValueChanged(object sender, EventArgs e)
@@ -45,35 +39,10 @@ namespace AcuRiteSniffer
 			Program.settings.Save(Program.settingsPath);
 		}
 
-		private void txtSmartHubAddress_TextChanged(object sender, EventArgs e)
-		{
-			IPAddress address;
-			if (IPAddress.TryParse(txtSmartHubAddress.Text, out address))
-			{
-				Program.settings.smartHubIp = address.ToString();
-				Program.settings.Save(Program.settingsPath);
-				txtSmartHubAddress.BackColor = nudPort.BackColor;
-			}
-			else
-				txtSmartHubAddress.BackColor = Color.Pink;
-		}
-
-		private void cbInterface_SelectedIndexChanged(object sender, EventArgs e)
-		{
-			Program.settings.myNetworkInterfaceIndex = cbInterface.SelectedIndex;
-			Program.settings.Save(Program.settingsPath);
-		}
-
 		private void btnTextFileDefinitions_Click(object sender, EventArgs e)
 		{
 			TextFileDefinitionEditor editor = new TextFileDefinitionEditor();
 			editor.ShowDialog();
-		}
-
-		private void cbEasyParse_CheckedChanged(object sender, EventArgs e)
-		{
-			Program.settings.easyParseMethod = cbEasyParse.Checked;
-			Program.settings.Save(Program.settingsPath);
 		}
 
 		private void txtServiceName_TextChanged(object sender, EventArgs e)
@@ -91,6 +60,36 @@ namespace AcuRiteSniffer
 		private void nudHttpsPort_ValueChanged(object sender, EventArgs e)
 		{
 			Program.settings.myHttpsPort = (int)nudHttpsPort.Value;
+			Program.settings.Save(Program.settingsPath);
+		}
+
+		private void btnMqttTest_Click(object sender, EventArgs e)
+		{
+			MQTT_Test mqttTestForm = new MQTT_Test();
+			mqttTestForm.ShowDialog();
+		}
+
+		private void txtMqttHost_TextChanged(object sender, EventArgs e)
+		{
+			Program.settings.mqttHost = txtMqttHost.Text;
+			Program.settings.Save(Program.settingsPath);
+		}
+
+		private void nudMqttPort_ValueChanged(object sender, EventArgs e)
+		{
+			Program.settings.mqttTcpPort = (int)nudMqttPort.Value;
+			Program.settings.Save(Program.settingsPath);
+		}
+
+		private void txtMqttUser_TextChanged(object sender, EventArgs e)
+		{
+			Program.settings.mqttUser = txtMqttUser.Text;
+			Program.settings.Save(Program.settingsPath);
+		}
+
+		private void txtMqttPassword_TextChanged(object sender, EventArgs e)
+		{
+			Program.settings.mqttPass = txtMqttPass.Text;
 			Program.settings.Save(Program.settingsPath);
 		}
 	}

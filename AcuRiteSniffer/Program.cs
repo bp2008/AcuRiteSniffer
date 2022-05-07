@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.ServiceProcess;
@@ -36,11 +37,17 @@ namespace AcuRiteSniffer
 				string ServiceName = settings.serviceName;
 				ButtonDefinition btnTestWebServer = new ButtonDefinition("Test Service (Start)", btnTestWebServer_Click);
 				ButtonDefinition btnEditSettings = new ButtonDefinition("Edit Settings", btnEditSettings_Click);
+				ButtonDefinition btnOpenWebApp = new ButtonDefinition("Open Web App", btnOpenWebApp_Click);
 
 				if (System.Diagnostics.Debugger.IsAttached)
 					btnTestWebServer_Click(btnTestWebServer, null);
 
-				System.Windows.Forms.Application.Run(new ServiceManager(Title, ServiceName, new ButtonDefinition[] { btnTestWebServer, btnEditSettings }));
+				System.Windows.Forms.Application.Run(
+					new ServiceManager(Title, ServiceName, new ButtonDefinition[] { btnTestWebServer, btnEditSettings, btnOpenWebApp })
+					{
+						StartPosition = FormStartPosition.CenterScreen
+					}
+				);
 
 				if (svc != null)
 					svc.DoStop();
@@ -81,6 +88,17 @@ namespace AcuRiteSniffer
 
 			EditSettings editor = new EditSettings();
 			editor.ShowDialog();
+		}
+		private static void btnOpenWebApp_Click(object sender, EventArgs e)
+		{
+			settings.Load(settingsPath);
+
+			if (settings.myWebPort > 0)
+				Process.Start("http://localhost:" + settings.myWebPort + "/");
+			else if (settings.myHttpsPort > 0)
+				Process.Start("https://localhost:" + settings.myHttpsPort + "/");
+			else
+				MessageBox.Show("Embedded web server is not configured.");
 		}
 	}
 }

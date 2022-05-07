@@ -41,6 +41,18 @@ namespace AcuRiteSniffer.Sensors
 		/// 
 		/// </summary>
 		public readonly string UniqueID;
+		/// <summary>
+		/// Friendly device name (if user has provided one).
+		/// </summary>
+		public string DeviceName
+		{
+			get
+			{
+				if (Program.settings.TryGetFriendlyDeviceName(UniqueID, out string friendly))
+					return friendly;
+				return "";
+			}
+		}
 
 		/// <summary>
 		/// Model number.
@@ -176,6 +188,18 @@ namespace AcuRiteSniffer.Sensors
 		/// Description of the wind using KPH. E.g. "Calm" or "7 KPH ENE, gusting to 12"
 		/// </summary>
 		public readonly string WindDescriptionKph;
+
+		[JsonIgnore]
+		public string OrderBy
+		{
+			get
+			{
+				if (!string.IsNullOrWhiteSpace(DeviceName))
+					return DeviceName;
+				else
+					return UniqueID;
+			}
+		}
 
 
 		[JsonIgnore]

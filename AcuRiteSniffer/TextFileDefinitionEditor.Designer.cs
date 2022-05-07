@@ -76,6 +76,7 @@
 			this.Controls.Add(this.btnDefault);
 			this.Controls.Add(this.label1);
 			this.Name = "TextFileDefinitionEditor";
+			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 			this.Text = "TextFileDefinitionEditor";
 			this.ResumeLayout(false);
 			this.PerformLayout();

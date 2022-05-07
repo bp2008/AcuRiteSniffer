@@ -15,67 +15,79 @@ namespace AcuRiteSniffer
 	public class WebServer : HttpServer
 	{
 		ConcurrentDictionary<string, SensorBase> sensorDataCollection = new ConcurrentDictionary<string, SensorBase>();
+		MqttReader mqttReader;
 		Regex rxGetURL = new Regex("(GET|POST) (/weatherstation/updateweatherstation\\?[^ ]*?) HTTP/1\\.", RegexOptions.Compiled & RegexOptions.Singleline);
 
 		public WebServer(int port = 45411, int httpsPort = -1) : base(port, httpsPort)
 		{
+			if (!string.IsNullOrWhiteSpace(Program.settings.mqttHost) && Program.settings.mqttTcpPort > 0 && Program.settings.mqttTcpPort < 65536 && !string.IsNullOrWhiteSpace(Program.settings.mqttUser) && !string.IsNullOrWhiteSpace(Program.settings.mqttPass))
+			{
+				mqttReader = new MqttReader(Program.settings.mqttHost, Program.settings.mqttTcpPort, Program.settings.mqttUser, Program.settings.mqttPass);
+				_ = mqttReader.Start();
+			}
 		}
 
 		public override void handleGETRequest(HttpProcessor p)
 		{
-
 			if (HandleRequestFromAcuriteAccessDevice(p))
 				return;
 			else if (p.requestedPage == "json")
 			{
-				List<SensorBase> sensors = new List<SensorBase>();
-				string uniqueId = p.GetParam("uniqueid");
-				if (uniqueId != "")
-				{
-					if (sensorDataCollection.TryGetValue(uniqueId, out SensorBase single))
-						sensors.Add(single);
-				}
-				else
-					foreach (SensorBase sensor in sensorDataCollection.Values)
-						sensors.Add(sensor);
-				string str = JsonConvert.SerializeObject(sensors.OrderBy(s => s.UniqueID));
-				p.writeSuccess("application/json", HttpProcessor.Utf8NoBOM.GetByteCount(str), additionalHeaders: getAdditionalHeaders());
+				IEnumerable<object> sensors = BuildSensorList(p);
+				string str = JsonConvert.SerializeObject(sensors);
+				p.writeSuccess("application/json", HttpProcessor.Utf8NoBOM.GetByteCount(str), additionalHeaders: getAdditionalHeaders(), keepAlive: p.keepAliveRequested);
 				p.outputStream.Write(str);
 			}
 			else if (p.requestedPage == "params")
 			{
 				StringBuilder sb = new StringBuilder();
-				List<SensorBase> sensors = new List<SensorBase>();
-				string uniqueId = p.GetParam("uniqueid");
-				if (uniqueId != "")
+				IEnumerable<object> sensors = BuildSensorList(p);
+				foreach (object o in sensors)
 				{
-					if (sensorDataCollection.TryGetValue(uniqueId, out SensorBase single))
-						sensors.Add(single);
-				}
-				else
-					foreach (SensorBase sensor in sensorDataCollection.Values)
-						sensors.Add(sensor);
-				foreach (SensorBase sensor in sensors.OrderBy(s => s.UniqueID))
-				{
-					sb.Append("[" + sensor.UniqueID + "]<br>");
-					sb.Append(sensor.GetParams());
-					sb.Append("<br><br>");
+					if (o is SensorBase)
+					{
+						SensorBase sensor = (SensorBase)o;
+						sb.Append("[" + sensor.UniqueID + "]<br>");
+						sb.Append(sensor.GetParams());
+						sb.Append("<br><br>");
+					}
+					else
+					{
+						MqttDevice d = (MqttDevice)o;
+						sb.Append("[" + d.OrderBy + "]<br>");
+						sb.Append(d.GetParams());
+						sb.Append("<br><br>");
+					}
 				}
 				string str = sb.ToString();
-				p.writeSuccess(contentLength: HttpProcessor.Utf8NoBOM.GetByteCount(str), additionalHeaders: getAdditionalHeaders());
-				p.outputStream.Write(str);
-			}
-			else if (p.requestedPage == "lastrequests")
-			{
-				string str = JsonConvert.SerializeObject(lastRequests.ToArray(), Formatting.Indented);
-				p.writeSuccess("application/json", HttpProcessor.Utf8NoBOM.GetByteCount(str), additionalHeaders: getAdditionalHeaders());
+				p.writeSuccess(contentLength: HttpProcessor.Utf8NoBOM.GetByteCount(str), additionalHeaders: getAdditionalHeaders(), keepAlive: p.keepAliveRequested);
 				p.outputStream.Write(str);
 			}
 			else if (p.requestedPage == "lastacuriteaccessrequests")
 			{
 				string str = "[\r\n" + string.Join("]\r\n\r\n***************************\r\n\r\n[\r\n", lastAcuriteAccessRequests.Select(i => i.ToString())) + "\r\n]\r\n";
-				p.writeSuccess("text/plain", HttpProcessor.Utf8NoBOM.GetByteCount(str), additionalHeaders: getAdditionalHeaders());
+				p.writeSuccess("text/plain", HttpProcessor.Utf8NoBOM.GetByteCount(str), additionalHeaders: getAdditionalHeaders(), keepAlive: p.keepAliveRequested);
 				p.outputStream.Write(str);
+			}
+			else if (p.requestedPage == "getfriendlydevicenames")
+			{
+				string str = JsonConvert.SerializeObject(Program.settings.GetFriendlyDeviceNames(), Formatting.Indented);
+				p.writeSuccess("application/json", HttpProcessor.Utf8NoBOM.GetByteCount(str), additionalHeaders: getAdditionalHeaders(), keepAlive: p.keepAliveRequested);
+				p.outputStream.Write(str);
+			}
+			else if (p.requestedPage == "setfriendlydevicename")
+			{
+				string key = p.GetParam("key");
+				string value = p.GetParam("value");
+				if (!Program.settings.TrySetFriendlyDeviceName(key, value, out string errorMessage))
+				{
+					p.writeSuccess("text/plain", HttpProcessor.Utf8NoBOM.GetByteCount(errorMessage), responseCode: "400 Bad Request", additionalHeaders: getAdditionalHeaders(), keepAlive: p.keepAliveRequested);
+					p.outputStream.Write(errorMessage);
+				}
+				else
+				{
+					p.writeSuccess("text/plain", 0, additionalHeaders: getAdditionalHeaders(), keepAlive: p.keepAliveRequested);
+				}
 			}
 			else
 			{
@@ -88,7 +100,7 @@ namespace AcuRiteSniffer
 						FileInfo fi = new FileInfo("SensorData/" + template.FileName);
 						if (fi.Exists)
 						{
-							p.writeSuccess("text/plain; charset=UTF-8", fi.Length, additionalHeaders: getAdditionalHeaders());
+							p.writeSuccess("text/plain; charset=UTF-8", fi.Length, additionalHeaders: getAdditionalHeaders(), keepAlive: p.keepAliveRequested);
 							p.outputStream.Write(File.ReadAllText(fi.FullName, Encoding.GetEncoding(1252)));
 						}
 						else
@@ -99,8 +111,9 @@ namespace AcuRiteSniffer
 					}
 				}
 
+				IEnumerable<object> sensors = BuildSensorList(p);
 				StringBuilder sb = new StringBuilder();
-				sb.Append(@"<!DOCTYPE html>
+				sb.AppendLine(@"<!DOCTYPE html>
 <html>
 <head>
 <title>AcuRite Sniffer Home</title>
@@ -110,35 +123,122 @@ namespace AcuRiteSniffer
 	<p><a href=""/json"">/json</a> - Get JSON records for all sensors</p>
 	<div></div>");
 
-				foreach (SensorBase sensor in sensorDataCollection.Values.OrderBy(s => s.UniqueID))
+				foreach (object sensor in sensors)
 				{
-					sb.Append(Environment.NewLine);
-					sb.Append("\t<div><a href=\"/json?uniqueid=" + sensor.UniqueID + "\">/json?uniqueid=" + sensor.UniqueID
-						+ "</a> - Get JSON record for the sensor \"" + sensor.UniqueID + "\"</div>");
+					string key = OrderSelector(sensor);
+					sb.AppendLine();
+					sb.AppendLine("\t<div><a href=\"/json?uniqueid=" + StringUtil.HtmlAttributeEncode(Uri.EscapeDataString(key)) + "\">/json?uniqueid=" + StringUtil.HtmlEncode(Uri.EscapeDataString(key))
+						+ "</a> - Get JSON record for the sensor \"" + StringUtil.HtmlEncode(key) + "\"</div>");
 				}
-				sb.Append("<p></p>");
-				sb.Append(@"<p><a href=""/params"">/params</a> - Get a list of parameters available for all sensors</p>");
-				sb.Append("<p></p>");
-				foreach (SensorBase sensor in sensorDataCollection.Values.OrderBy(s => s.UniqueID))
+				sb.AppendLine("<p></p>");
+				sb.AppendLine(@"<p><a href=""/params"">/params</a> - Get a list of parameters available for all sensors</p>");
+				sb.AppendLine("<p></p>");
+				foreach (object sensor in sensors)
 				{
-					sb.Append(Environment.NewLine);
-					sb.Append("\t<div><a href=\"/params?uniqueid=" + sensor.UniqueID + "\">/params?uniqueid=" + sensor.UniqueID + "</a> - Get a list of parameters available for sensor \"" + sensor.UniqueID + "\"</div>");
+					string key = OrderSelector(sensor);
+					sb.AppendLine();
+					sb.AppendLine("\t<div><a href=\"/params?uniqueid=" + StringUtil.HtmlAttributeEncode(Uri.EscapeDataString(key)) + "\">/params?uniqueid=" + StringUtil.HtmlEncode(Uri.EscapeDataString(key)) + "</a> - Get a list of parameters available for sensor \"" + StringUtil.HtmlEncode(key) + "\"</div>");
 				}
-				sb.Append("<p></p>");
+				sb.AppendLine("<p></p>");
 				foreach (DataFileTemplate template in templates.OrderBy(t => t.FileName))
 				{
-					sb.Append(Environment.NewLine);
-					sb.Append("\t<div><a href=\"/" + template.FileName + "\">/" + template.FileName + "</a> - Get a custom text file for the sensor \"" + template.UniqueID + "\"</div>");
+					sb.AppendLine();
+					sb.AppendLine("\t<div><a href=\"/" + template.FileName + "\">/" + template.FileName + "</a> - Get a custom text file for the sensor \"" + template.UniqueID + "\"</div>");
 				}
-				sb.Append(@"<p><a href=""/lastrequests"">/lastrequests</a> - Get the last 10 requests captured from the SmartHub.</p>");
-				sb.Append(@"<p><a href=""/lastacuriteaccessrequests"">/lastacuriteaccessrequests</a> - Get the last 10 requests captured and proxied from configured AcuRite Access IP Addresses.</p>");
+				sb.AppendLine(@"<p><a href=""/lastacuriteaccessrequests"">/lastacuriteaccessrequests</a> - Get the last 10 requests captured and proxied from configured AcuRite Access IP Addresses.</p>");
+				sb.AppendLine("<p></p>");
+				sb.AppendLine(@"<p><a href=""/getfriendlydevicenames"">/getfriendlydevicenames</a> - Get a list of key/value pairs mapping unique device IDs to unique friendly names.  Friendly names can be used as an alternative to the device ID when querying device data and writing custom text file definitions.</p>");
+				sb.AppendLine(@"<p><a href=""/setfriendlydevicename?key=XXX&value=XXX"">/setfriendlydevicename?key=XXX&value=XXX</a> - Set a mapping for device ID to unique friendly name.</p>");
+				sb.AppendLine("<p></p>");
+				sb.AppendLine("<p>Set Friendly Names:</p>");
+				int id = 0;
+				foreach (object sensor in sensors)
+				{
+					string key = GetDeviceKey(sensor);
+					sb.AppendLine();
+					string friendlyName;
+					Program.settings.TryGetFriendlyDeviceName(key, out friendlyName);
+					sb.Append("\t<div><span style=\"font-family: consolas, monospace;\">");
+					sb.Append(StringUtil.HtmlEncode(key));
+					sb.AppendLine(":</span>");
+					sb.AppendLine("<input type=\"text\" id=\"friendlyName" + id + "\" value=\"" + StringUtil.HtmlAttributeEncode(friendlyName) + "\">");
+					sb.AppendLine("<input type=\"button\" value=\"<- Set\" onclick=\"setDeviceFriendlyName(event, '" + StringUtil.HtmlAttributeEncode(key) + "', 'friendlyName" + id + "')\">");
+					sb.AppendLine("</div>");
+					id++;
+				}
 				sb.Append(@"
+<script type=""text/javascript"">
+function setDeviceFriendlyName(e, key, inputId)
+{
+	try
+	{
+		e.target.setAttribute('disabled', 'disabled');
+		var value = document.getElementById(inputId).value; 
+		fetch('/setfriendlydevicename?key=' + encodeURIComponent(key) + '&value=' + encodeURIComponent(value))
+			.then(function (result)
+			{
+				e.target.removeAttribute('disabled');
+			})
+			.catch(function (err)
+			{
+				alert(err);
+			});
+	}
+	catch(ex)
+	{
+		alert(ex.message);
+	}
+}
+</script>
 </body>
 </html>");
 				string str = sb.ToString();
-				p.writeSuccess(contentLength: HttpProcessor.Utf8NoBOM.GetByteCount(str), additionalHeaders: getAdditionalHeaders());
+				p.writeSuccess(contentLength: HttpProcessor.Utf8NoBOM.GetByteCount(str), additionalHeaders: getAdditionalHeaders(), keepAlive: p.keepAliveRequested);
 				p.outputStream.Write(str);
 			}
+		}
+
+		private IEnumerable<object> BuildSensorList(HttpProcessor p)
+		{
+			List<object> sensors = new List<object>();
+			string uniqueId = p.GetParam("uniqueid");
+			if (uniqueId != "")
+			{
+				SensorBase single = sensorDataCollection.Values.FirstOrDefault(d => d.UniqueID == uniqueId || d.DeviceName == uniqueId);
+				if (single != null)
+					sensors.Add(single);
+				else
+				{
+					if (mqttReader != null)
+					{
+						MqttDevice mqttDevice = mqttReader.GetDevices().FirstOrDefault(d => d.Key == uniqueId || d.Name == uniqueId);
+						if (mqttDevice != null)
+							sensors.Add(mqttDevice);
+					}
+				}
+			}
+			else
+			{
+				sensors.AddRange(sensorDataCollection.Values);
+				if (mqttReader != null)
+					sensors.AddRange(mqttReader.GetDevices());
+			}
+			return sensors.OrderBy(OrderSelector);
+		}
+
+		private static string OrderSelector(object o)
+		{
+			if (o is SensorBase)
+				return ((SensorBase)o).OrderBy;
+			else
+				return ((MqttDevice)o).OrderBy;
+		}
+		private static string GetDeviceKey(object o)
+		{
+			if (o is SensorBase)
+				return ((SensorBase)o).UniqueID;
+			else
+				return ((MqttDevice)o).Key;
 		}
 
 		private List<KeyValuePair<string, string>> getAdditionalHeaders()
@@ -184,7 +284,7 @@ namespace AcuRiteSniffer
 						List<DataFileTemplate> templates = Program.settings.GetSensorDataTemplates();
 						foreach (DataFileTemplate template in templates)
 						{
-							if (sensorData.UniqueID == template.UniqueID)
+							if (sensorData.UniqueID == template.UniqueID || sensorData.DeviceName == template.UniqueID)
 								sensorData.WriteFile(template);
 						}
 					}
@@ -192,33 +292,6 @@ namespace AcuRiteSniffer
 				return true;
 			}
 			return false;
-		}
-
-		ConcurrentQueue<string> lastRequests = new ConcurrentQueue<string>();
-		public void ReceiveData(string str)
-		{
-			try
-			{
-				lastRequests.Enqueue(str);
-				if (lastRequests.Count > 10)
-					lastRequests.TryDequeue(out string removed);
-				Match m = rxGetURL.Match(str);
-				if (m.Success)
-				{
-					SensorBase sensorData = new SensorBase(m.Groups[2].Value);
-					sensorDataCollection[sensorData.UniqueID] = sensorData;
-					List<DataFileTemplate> templates = Program.settings.GetSensorDataTemplates();
-					foreach (DataFileTemplate template in templates)
-					{
-						if (sensorData.UniqueID == template.UniqueID)
-							sensorData.WriteFile(template);
-					}
-				}
-			}
-			catch (Exception ex)
-			{
-				Logger.Debug(ex);
-			}
 		}
 	}
 }

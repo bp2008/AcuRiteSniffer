@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -12,22 +13,50 @@ namespace AcuRiteSniffer
 {
 	public class Settings : SerializableObjectBase
 	{
-		public string smartHubIp = "192.168.0.135";
 		public string accessIpsSemicolonSeparated = "192.168.0.171";
+		/// <summary>
+		/// If -1, we won't listen with http.
+		/// </summary>
 		public ushort myWebPort = 45411;
 		/// <summary>
 		/// If -1, we won't listen with https.
 		/// </summary>
 		public int myHttpsPort = 443;
-		public int myNetworkInterfaceIndex = 0;
-		public bool easyParseMethod = true;
 		public string serviceName = "AcuRiteSniffer";
 		public string sensorDataFiles = "[24C86E000000_12345678]Temperature: ##tempf##°\\nHumidity: ##humidity##\\nAt ##date## ##time##"
 			+ Environment.NewLine + "[24C86E000000_00001234=myWindSpeed.txt]##windspeedmph## MPH"
 			+ Environment.NewLine + "[24C86E000000_00001234=myWindDirection.txt]##winddir##";
 
+		public string mqttHost = "";
+		public int mqttTcpPort = 1883;
+		public string mqttUser = "mqttuser";
+		public string mqttPass = "";
+
+		public string friendlyNamesJson = "";
+
 		private static Regex rxReadSensorDataFileLine = new Regex("\\[(.*?)\\](.*)", RegexOptions.Compiled);
 		private List<DataFileTemplate> templates;
+		private ConcurrentDictionary<string, string> friendlyNamesDict = new ConcurrentDictionary<string, string>();
+		public override bool Load(string filePath = null)
+		{
+			bool result = base.Load(filePath);
+			try
+			{
+				friendlyNamesDict = JsonConvert.DeserializeObject<ConcurrentDictionary<string, string>>(friendlyNamesJson);
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine(ex.ToString());
+			}
+			if (friendlyNamesDict == null)
+				friendlyNamesDict = new ConcurrentDictionary<string, string>();
+			return result;
+		}
+		public override bool Save(string filePath = null)
+		{
+			friendlyNamesJson = JsonConvert.SerializeObject(friendlyNamesDict);
+			return base.Save(filePath);
+		}
 
 		public List<DataFileTemplate> GetSensorDataTemplates()
 		{
@@ -60,6 +89,73 @@ namespace AcuRiteSniffer
 					}
 			}
 			return _accessIps;
+		}
+		/// <summary>
+		/// Tries to get the friendly name for the given device key, returning true if successful.
+		/// </summary>
+		/// <param name="deviceKey">Device unique ID string</param>
+		/// <param name="deviceFriendlyName">Friendly name</param>
+		/// <returns></returns>
+		public bool TryGetFriendlyDeviceName(string deviceKey, out string deviceFriendlyName)
+		{
+			if (friendlyNamesDict != null && friendlyNamesDict.TryGetValue(deviceKey, out deviceFriendlyName))
+				return true;
+			deviceFriendlyName = "";
+			return false;
+
+		}
+		/// <summary>
+		/// Gets an array of key/value pairs ordered by key, mapping the key to the friendly device name.
+		/// </summary>
+		/// <returns></returns>
+		public KeyValuePair<string, string>[] GetFriendlyDeviceNames()
+		{
+			return friendlyNamesDict.OrderBy(kvp => kvp.Key).ToArray();
+		}
+		/// <summary>
+		/// Tries to set the friendly device name for a given key, returning true if successful. Returns false if there was an input validation error or if setting the value would have caused a duplicate value to exist (the duplication check is not thread-safe).
+		/// </summary>
+		/// <returns></returns>
+		public bool TrySetFriendlyDeviceName(string deviceKey, string deviceFriendlyName, out string errorMessage)
+		{
+			if (deviceKey == deviceFriendlyName)
+			{
+				errorMessage = "It is not allowed to set the friendly name to be identical to the device key.  Perhaps you would like to set an empty friendly name (that is allowed).";
+				return false;
+			}
+			if (string.IsNullOrWhiteSpace(deviceKey))
+			{
+				errorMessage = "The given device key is invalid.";
+				return false;
+			}
+			if (friendlyNamesDict.ContainsKey(deviceFriendlyName))
+			{
+				errorMessage = "The given friendly name conflicts with an existing device key.";
+				return false;
+			}
+			if (deviceFriendlyName == "")
+			{
+				friendlyNamesDict.TryRemove(deviceKey, out string ignored);
+				Save(Program.settingsPath);
+			}
+			else
+			{
+				deviceFriendlyName = deviceFriendlyName.Trim();
+				if (!StringUtil.IsPrintableName(deviceFriendlyName))
+				{
+					errorMessage = "The given friendly name does not achieve minimum readability. It must contain at least one alphanumeric character and consist only of ASCII printable characters or basic whitespace. It is also allowed to set an empty friendly name.";
+					return false;
+				}
+				if (friendlyNamesDict.Values.Any(existing => existing.Equals(deviceFriendlyName, StringComparison.OrdinalIgnoreCase)))
+				{
+					errorMessage = "The given friendly name already exists. Refusing to add.";
+					return false;
+				}
+				friendlyNamesDict[deviceKey] = deviceFriendlyName;
+				Save(Program.settingsPath);
+			}
+			errorMessage = "";
+			return true;
 		}
 	}
 	public class DataFileTemplate

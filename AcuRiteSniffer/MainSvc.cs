@@ -13,7 +13,6 @@ namespace AcuRiteSniffer
 	public partial class MainSvc : ServiceBase
 	{
 		WebServer svr = null;
-		Sniffer sniffer = null;
 
 		public MainSvc()
 		{
@@ -38,15 +37,6 @@ namespace AcuRiteSniffer
 
 			svr = new WebServer(Program.settings.myWebPort, Program.settings.myHttpsPort);
 			svr.Start();
-			sniffer = new Sniffer(Program.settings.smartHubIp, Program.settings.myNetworkInterfaceIndex);
-			sniffer.onRequestReceived += Sniffer_onRequestReceived;
-			sniffer.Start();
-		}
-
-		private void Sniffer_onRequestReceived(object sender, string str)
-		{
-			if (svr != null)
-				svr.ReceiveData(str);
 		}
 
 		protected override void OnStop()
@@ -55,8 +45,6 @@ namespace AcuRiteSniffer
 			{
 				svr.Stop();
 				svr = null;
-				sniffer.Stop();
-				sniffer = null;
 			}
 		}
 	}
