@@ -41,8 +41,14 @@ namespace AcuRiteSniffer
 		private void Cleanup()
 		{
 			long now = sw.ElapsedMilliseconds;
-			while (q.Peek().IsExpired(now, MillisecondWindowSize))
-				q.Dequeue();
+			while (true)
+			{
+				var o = q.Peek();
+				if (o != null && o.IsExpired(now, MillisecondWindowSize))
+					q.Dequeue();
+				else
+					break;
+			}
 		}
 		/// <summary>
 		/// Adds a value to the internal collection.  It will be deleted after <see cref="MillisecondWindowSize"/> milliseconds.

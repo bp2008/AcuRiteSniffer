@@ -273,18 +273,24 @@ namespace AcuRiteSniffer
 
 		public void WriteFile(DataFileTemplate template)
 		{
-			try
+			SetTimeout.OnBackground(() =>
 			{
-				FileInfo fi = new FileInfo("SensorData/" + template.FileName);
-				if (!fi.Directory.Exists)
-					Directory.CreateDirectory(fi.Directory.FullName);
-				if (!fi.Exists || !fi.IsReadOnly)
-					File.WriteAllText(fi.FullName, ApplyTemplate(template.TemplateStr), Encoding.GetEncoding(1252));
-			}
-			catch (Exception ex)
-			{
-				Logger.Debug(ex, "MqttDevice.WriteFile(\"" + template.ToString() + "\")");
-			}
+				try
+				{
+					Robust.Retry(() =>
+					{
+						FileInfo fi = new FileInfo("SensorData/" + template.FileName);
+						if (!fi.Directory.Exists)
+							Directory.CreateDirectory(fi.Directory.FullName);
+						if (!fi.Exists || !fi.IsReadOnly)
+							File.WriteAllText(fi.FullName, ApplyTemplate(template.TemplateStr), Encoding.GetEncoding(1252));
+					}, 1, 5, 10, 20, 50, 250, 500, 1000);
+				}
+				catch (Exception ex)
+				{
+					Logger.Debug(ex, "MqttDevice.WriteFile(\"" + template.ToString() + "\")");
+				}
+			}, 0, e => Logger.Debug(e));
 		}
 
 		private static Regex rxFileTemplate = new Regex("(##([^\\s]+)##)", RegexOptions.Compiled & RegexOptions.Singleline);
