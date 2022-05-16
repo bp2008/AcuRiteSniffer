@@ -26,6 +26,10 @@ namespace AcuRiteSniffer
 				_ = mqttReader.Start();
 			}
 		}
+		public override bool shouldLogRequestsToFile()
+		{
+			return false;
+		}
 
 		public override void handleGETRequest(HttpProcessor p)
 		{
@@ -268,7 +272,7 @@ function setDeviceFriendlyName(e, key, inputId)
 			if (Program.settings.GetAcuriteAccessIPs().Contains(p.RemoteIPAddressStr))
 			{
 				ProxyDataBuffer proxiedDataBuffer = new ProxyDataBuffer();
-				p.ProxyTo("https://atlasapi.myacurite.com" + p.request_url.PathAndQuery, 15000, true, proxiedDataBuffer);
+				p.ProxyTo("https://atlasapi.myacurite.com" + p.request_url.PathAndQuery, 30000, true, proxiedDataBuffer);
 
 				lastAcuriteAccessRequests.Enqueue(proxiedDataBuffer);
 				if (lastAcuriteAccessRequests.Count > 10)
