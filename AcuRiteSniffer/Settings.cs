@@ -141,9 +141,9 @@ namespace AcuRiteSniffer
 			else
 			{
 				deviceFriendlyName = deviceFriendlyName.Trim();
-				if (!StringUtil.IsPrintableName(deviceFriendlyName))
+				if (!StringUtil.IsPrintableName(deviceFriendlyName) || deviceFriendlyName.Contains(','))
 				{
-					errorMessage = "The given friendly name does not achieve minimum readability. It must contain at least one alphanumeric character and consist only of ASCII printable characters or basic whitespace. It is also allowed to set an empty friendly name.";
+					errorMessage = "The given friendly name does not achieve minimum readability. It must contain at least one alphanumeric character and consist only of ASCII printable characters or basic whitespace. It is also allowed to set an empty friendly name. Commas are not allowed in friendly names.";
 					return false;
 				}
 				if (friendlyNamesDict.Values.Any(existing => existing.Equals(deviceFriendlyName, StringComparison.OrdinalIgnoreCase)))

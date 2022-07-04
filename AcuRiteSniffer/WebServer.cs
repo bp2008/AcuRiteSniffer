@@ -135,6 +135,8 @@ namespace AcuRiteSniffer
 						+ "</a> - Get JSON record for the sensor \"" + StringUtil.HtmlEncode(key) + "\"</div>");
 				}
 				sb.AppendLine("<p></p>");
+				sb.AppendLine("<p>Add multiple uniqueid arguments to retrieve values from multiple sensors.</p>");
+				sb.AppendLine("<p></p>");
 				sb.AppendLine(@"<p><a href=""/params"">/params</a> - Get a list of parameters available for all sensors</p>");
 				sb.AppendLine("<p></p>");
 				foreach (object sensor in sensors)
@@ -205,20 +207,18 @@ function setDeviceFriendlyName(e, key, inputId)
 		private IEnumerable<object> BuildSensorList(HttpProcessor p)
 		{
 			List<object> sensors = new List<object>();
-			string uniqueId = p.GetParam("uniqueid");
-			if (uniqueId != "")
+			string[] uniqueIds = p.GetParam("uniqueid").Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+			if (uniqueIds.Length > 0)
 			{
-				SensorBase single = sensorDataCollection.Values.FirstOrDefault(d => d.UniqueID == uniqueId || d.DeviceName == uniqueId);
-				if (single != null)
-					sensors.Add(single);
-				else
+				HashSet<string> idHash = new HashSet<string>(uniqueIds);
+				SensorBase[] matches = sensorDataCollection.Values.Where(d => idHash.Contains(d.UniqueID) || idHash.Contains(d.DeviceName)).ToArray();
+				if (matches.Length > 0)
+					sensors.AddRange(matches);
+				if (mqttReader != null)
 				{
-					if (mqttReader != null)
-					{
-						MqttDevice mqttDevice = mqttReader.GetDevices().FirstOrDefault(d => d.Key == uniqueId || d.Name == uniqueId);
-						if (mqttDevice != null)
-							sensors.Add(mqttDevice);
-					}
+					MqttDevice[] mqttDevices = mqttReader.GetDevices().Where(d => idHash.Contains(d.Key) || idHash.Contains(d.Name)).ToArray();
+					if (mqttDevices.Length > 0)
+						sensors.AddRange(mqttDevices);
 				}
 			}
 			else
