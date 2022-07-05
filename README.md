@@ -101,6 +101,69 @@ The third line specifies that the wind direction from the same sensor `24C86E000
 
 *Note 3: The /params page (hosted by the embedded web server) lists all the sensor UniqueIDs and the available parameters that you can use in a file template.*
 
+# Version 2.0 Changes
+
+SmartHUB compatibility has been removed.
+
+AcuRite Access compatibility still works, but is now deprecated in favor of acquiring sensor data from an SDR radio.
+
+Friendly names can be assigned to devices via the AcuRiteSniffer web interface.
+
+## SDR compatibility
+
+The service can now handle AcuRite sensor data read by rtl_433 software (using an SDR radio such as RTL-SDR). However instead of interfacing with rtl_433 directly, it is required to have rtl_433 publish sensor data to an MQTT broker.  Connect AcuRiteSniffer to the same MQTT broker in order to read the sensor data.
+
+![image](https://user-images.githubusercontent.com/5639911/177395516-63950bf4-28f0-4f21-b7e1-5d594bd532b7.png)
+
+This functionality was developed using Home Assistant addons `Mosquitto broker` and `rtl_433` (`rtl_433 MQTT Auto Discovery` is another nice addon which exposes your wireless sensors directly to Home Assistant).
+
+Benefits of SDR radio:
+* Everything runs locally, no cloud-connected device that the manufacturer will eventually stop supporting
+* Hardware cost cheaper than AcuRite Access
+* Better receiving antennas are available
+* No 7-sensor limit (AcuRite Access supports up to 7 sensors per base station)
+* Immediate data acquisition (AcuRite Access publishes data on a relatively long interval)
+
+Benefits of AcuRite Access:
+* All-in-one solution with free cloud service, data graphing, alerts, etc.
+* Easy to set up and share sensor data
+
+
+### Sample rtl_433 configuration
+
+This is from my own rtl_433 configuration which is saved to the file `/config/rtl_433/rtl_433.conf.template` on the device running Home Assistant. (tip: use the `File editor` addon for Home Assistant if you otherwise don't have filesystem access).
+
+```
+# This is an empty template for configuring rtl_433. mqtt information will be
+# automatically added. Create multiple files ending in '.conf.template' to
+# manage multiple rtl_433 radios, being sure to set the 'device' setting.
+# https://github.com/merbanan/rtl_433/blob/master/conf/rtl_433.example.conf
+
+output mqtt://${host}:${port},user=${username},pass=${password},retain=${retain}
+
+# Uncomment the following line to also enable the default "table" output to the addon logs.
+#output kv
+
+frequency   433.92M
+convert     customary
+report_meta time:utc
+
+#[11]  Acurite 609TXC Temperature and Humidity Sensor
+protocol 11
+# [40]  Acurite 592TXR Temp/Humidity, 5n1 Weather Station, 6045 Lightning, 3N1, Atlas
+protocol 40
+# [41]  Acurite 986 Refrigerator / Freezer Thermometer
+protocol 41
+# [55]  Acurite 606TX Temperature Sensor
+protocol 55
+# [74]  Acurite 00275rm,00276rm Temp/Humidity with optional probe
+protocol 74
+# [163]  Acurite 590TX Temperature with optional Humidity
+protocol 163
+# [197]  Acurite Grill/Meat Thermometer 01185M
+protocol 197
+```
+
 ## Building from source
 
 This project is built with Visual Studio 2017 (Community Edition).  To build from source, you will also need my general-purpose utility library, which must be downloaded separately, here: https://github.com/bp2008/BPUtil
