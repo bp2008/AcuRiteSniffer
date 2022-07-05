@@ -80,6 +80,14 @@ namespace AcuRiteSniffer
 		/// Provides the lowest and highest recent wind values in kilometers per hour.
 		/// </summary>
 		private RollingMinMaxAvg windTrackerKm = new RollingMinMaxAvg((long)TimeSpan.FromMinutes(5).TotalMilliseconds);
+		/// <summary>
+		/// This event is raised about 250ms after the "time" attribute is updated, after wind high/low/avg is computed.
+		/// </summary>
+		public event EventHandler OnUpdate = delegate { };
+		/// <summary>
+		/// This event is raised if an exception occurs during an asynchronous operation. If logging the error is desired, it must be done by the caller.
+		/// </summary>
+		public event EventHandler<Exception> OnBackgroundError = delegate { };
 		private double WindSpeedMph
 		{
 			get
@@ -192,81 +200,103 @@ namespace AcuRiteSniffer
 			Props["time_local"] = updated.Value.ToString("yyyy-MM-dd hh:mm:ss tt");
 			SetTimeout.OnBackground(() =>
 			{
-				updated = Updated;
-
-				bool hasAnyWindData = false;
-				// Compute wind averages over time
-				double wind_dir_deg = 0;
-				if (!Props.TryGetValue("wind_dir_deg", out string str_wind_dir_deg) || !double.TryParse(str_wind_dir_deg, out wind_dir_deg))
-					wind_dir_deg = 0;
-				if (Props.TryGetValue("wind_avg_mi_h", out string str_wind_speed_mph) && double.TryParse(str_wind_speed_mph, out double wind_speed_mph))
+				try
 				{
-					hasAnyWindData = true;
-					windTrackerMi.Add(wind_speed_mph, wind_dir_deg);
+					updated = Updated;
 
-					RollingMinMaxAvg.StoredValue low = windTrackerMi.GetMinimum();
-					CompassDirection dir = Compass.GetCompassDirection((int)Math.Round(low.directionDegrees));
-					Props["wind_5min_low_mi_h"] = low.speed.ToString();
-					Props["wind_5min_low_mi_dir_abbr"] = dir.ToString();
-					Props["wind_5min_low_mi_dir_full"] = Compass.GetCompassDirectionName(dir);
-
-					RollingMinMaxAvg.StoredValue high = windTrackerMi.GetMaximum();
-					dir = Compass.GetCompassDirection((int)Math.Round(high.directionDegrees));
-					Props["wind_5min_high_mi_h"] = high.speed.ToString();
-					Props["wind_5min_high_mi_dir_abbr"] = dir.ToString();
-					Props["wind_5min_high_mi_dir_full"] = Compass.GetCompassDirectionName(dir);
-
-					RollingMinMaxAvg.StoredValue avg = windTrackerMi.GetAverage();
-					dir = Compass.GetCompassDirection((int)Math.Round(avg.directionDegrees));
-					Props["wind_5min_avg_mi_h"] = avg.speed.ToString();
-					Props["wind_5min_avg_mi_dir_abbr"] = dir.ToString();
-					Props["wind_5min_avg_mi_dir_full"] = Compass.GetCompassDirectionName(dir);
-				}
-				if (Props.TryGetValue("wind_avg_km_h", out string str_wind_speed_kph) && double.TryParse(str_wind_speed_kph, out double wind_speed_kph))
-				{
-					windTrackerKm.Add(wind_speed_kph, wind_dir_deg);
-
-					RollingMinMaxAvg.StoredValue low = windTrackerKm.GetMinimum();
-					CompassDirection dir = Compass.GetCompassDirection((int)Math.Round(low.directionDegrees));
-					Props["wind_5min_low_km_h"] = low.speed.ToString();
-					Props["wind_5min_low_km_dir_abbr"] = dir.ToString();
-					Props["wind_5min_low_km_dir_full"] = Compass.GetCompassDirectionName(dir);
-
-					RollingMinMaxAvg.StoredValue high = windTrackerKm.GetMaximum();
-					dir = Compass.GetCompassDirection((int)Math.Round(high.directionDegrees));
-					Props["wind_5min_high_km_h"] = high.speed.ToString();
-					Props["wind_5min_high_km_dir_abbr"] = dir.ToString();
-					Props["wind_5min_high_km_dir_full"] = Compass.GetCompassDirectionName(dir);
-
-					RollingMinMaxAvg.StoredValue avg = windTrackerKm.GetAverage();
-					dir = Compass.GetCompassDirection((int)Math.Round(avg.directionDegrees));
-					Props["wind_5min_avg_km_h"] = avg.speed.ToString();
-					Props["wind_5min_avg_km_dir_abbr"] = dir.ToString();
-					Props["wind_5min_avg_km_dir_full"] = Compass.GetCompassDirectionName(dir);
-				}
-				if (hasAnyWindData)
-				{
-					int speed = (int)Math.Round(WindSpeedMph);
-					int gust = (int)Math.Round(WindGustMph);
-					StringBuilder sbWind = new StringBuilder();
-					if (speed == 0 && gust == 0)
-						sbWind.Append("Calm");
-					else
+					bool hasAnyWindData = false;
+					// Compute wind averages over time
+					double wind_dir_deg = 0;
+					if (!Props.TryGetValue("wind_dir_deg", out string str_wind_dir_deg) || !double.TryParse(str_wind_dir_deg, out wind_dir_deg))
+						wind_dir_deg = 0;
+					if (Props.TryGetValue("wind_avg_mi_h", out string str_wind_speed_mph) && double.TryParse(str_wind_speed_mph, out double wind_speed_mph))
 					{
-						if (speed > 0)
-						{
-							sbWind.Append(speed + " MPH " + WindDirAbbr);
-							if (gust > speed)
-								sbWind.Append(", ");
-						}
-						if (gust > speed)
-						{
-							sbWind.Append("gusting to " + gust);
-							if (speed == 0)
-								sbWind.Append(" MPH " + WindGustDirAbbr);
-						}
+						hasAnyWindData = true;
+						windTrackerMi.Add(wind_speed_mph, wind_dir_deg);
+
+						RollingMinMaxAvg.StoredValue low = windTrackerMi.GetMinimum();
+						CompassDirection dir = Compass.GetCompassDirection((int)Math.Round(low.directionDegrees));
+						Props["wind_5min_low_mi_h"] = low.speed.ToString();
+						Props["wind_5min_low_mi_dir_abbr"] = dir.ToString();
+						Props["wind_5min_low_mi_dir_full"] = Compass.GetCompassDirectionName(dir);
+
+						RollingMinMaxAvg.StoredValue high = windTrackerMi.GetMaximum();
+						dir = Compass.GetCompassDirection((int)Math.Round(high.directionDegrees));
+						Props["wind_5min_high_mi_h"] = high.speed.ToString();
+						Props["wind_5min_high_mi_dir_abbr"] = dir.ToString();
+						Props["wind_5min_high_mi_dir_full"] = Compass.GetCompassDirectionName(dir);
+
+						RollingMinMaxAvg.StoredValue avg = windTrackerMi.GetAverage();
+						dir = Compass.GetCompassDirection((int)Math.Round(avg.directionDegrees));
+						Props["wind_5min_avg_mi_h"] = avg.speed.ToString();
+						Props["wind_5min_avg_mi_dir_abbr"] = dir.ToString();
+						Props["wind_5min_avg_mi_dir_full"] = Compass.GetCompassDirectionName(dir);
 					}
-					Props["wind_desc_mi"] = sbWind.ToString();
+					if (Props.TryGetValue("wind_avg_km_h", out string str_wind_speed_kph) && double.TryParse(str_wind_speed_kph, out double wind_speed_kph))
+					{
+						windTrackerKm.Add(wind_speed_kph, wind_dir_deg);
+
+						RollingMinMaxAvg.StoredValue low = windTrackerKm.GetMinimum();
+						CompassDirection dir = Compass.GetCompassDirection((int)Math.Round(low.directionDegrees));
+						Props["wind_5min_low_km_h"] = low.speed.ToString();
+						Props["wind_5min_low_km_dir_abbr"] = dir.ToString();
+						Props["wind_5min_low_km_dir_full"] = Compass.GetCompassDirectionName(dir);
+
+						RollingMinMaxAvg.StoredValue high = windTrackerKm.GetMaximum();
+						dir = Compass.GetCompassDirection((int)Math.Round(high.directionDegrees));
+						Props["wind_5min_high_km_h"] = high.speed.ToString();
+						Props["wind_5min_high_km_dir_abbr"] = dir.ToString();
+						Props["wind_5min_high_km_dir_full"] = Compass.GetCompassDirectionName(dir);
+
+						RollingMinMaxAvg.StoredValue avg = windTrackerKm.GetAverage();
+						dir = Compass.GetCompassDirection((int)Math.Round(avg.directionDegrees));
+						Props["wind_5min_avg_km_h"] = avg.speed.ToString();
+						Props["wind_5min_avg_km_dir_abbr"] = dir.ToString();
+						Props["wind_5min_avg_km_dir_full"] = Compass.GetCompassDirectionName(dir);
+					}
+					if (hasAnyWindData)
+					{
+						int speed = (int)Math.Round(WindSpeedMph);
+						int gust = (int)Math.Round(WindGustMph);
+						StringBuilder sbWind = new StringBuilder();
+						if (speed == 0 && gust == 0)
+							sbWind.Append("Calm");
+						else
+						{
+							if (speed > 0)
+							{
+								sbWind.Append(speed + " MPH " + WindDirAbbr);
+								if (gust > speed)
+									sbWind.Append(", ");
+							}
+							if (gust > speed)
+							{
+								sbWind.Append("gusting to " + gust);
+								if (speed == 0)
+									sbWind.Append(" MPH " + WindGustDirAbbr);
+							}
+						}
+						Props["wind_desc_mi"] = sbWind.ToString();
+					}
+				}
+				catch (Exception ex)
+				{
+					try
+					{
+						OnBackgroundError(this, ex);
+					}
+					catch (Exception ex2)
+					{
+						Logger.Debug(ex2, "MqttDevice OnBackgroundError event");
+					}
+				}
+				try
+				{
+					OnUpdate(this, new EventArgs());
+				}
+				catch (Exception ex)
+				{
+					Logger.Debug(ex, "MqttDevice OnUpdate event");
 				}
 			}, 250);
 		}
@@ -414,6 +444,8 @@ namespace AcuRiteSniffer
 				{
 					MqttDevice o = new MqttDevice();
 					o.Key = deviceKey;
+					o.OnUpdate += DeviceUpdatedCallback;
+					o.OnBackgroundError += DeviceErrorCallback;
 					return o;
 				});
 
@@ -421,21 +453,26 @@ namespace AcuRiteSniffer
 
 				string newValue = ByteUtil.Utf8NoBOM.GetString(m.Payload);
 				device.SetValue(fieldName, newValue, ref changed);
-
-				if (changed)
-				{
-					foreach (DataFileTemplate template in templates)
-					{
-						if (device.Key == template.UniqueID || device.Name == template.UniqueID)
-							device.WriteFile(template);
-					}
-					OnDeviceUpdate(this, device);
-				}
 			}
 			catch (Exception ex)
 			{
 				OnError(this, ex.ToString());
 			}
+		}
+
+		private void DeviceUpdatedCallback(object sender, EventArgs e)
+		{
+			MqttDevice device = (MqttDevice)sender;
+			foreach (DataFileTemplate template in templates)
+			{
+				if (device.Key == template.UniqueID || device.Name == template.UniqueID)
+					device.WriteFile(template);
+			}
+			OnDeviceUpdate(this, device);
+		}
+		private void DeviceErrorCallback(object sender, Exception ex)
+		{
+			OnError(this, ex.ToString());
 		}
 
 		/// <summary>
