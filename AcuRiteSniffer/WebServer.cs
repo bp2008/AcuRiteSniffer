@@ -23,9 +23,16 @@ namespace AcuRiteSniffer
 			if (!string.IsNullOrWhiteSpace(Program.settings.mqttHost) && Program.settings.mqttTcpPort > 0 && Program.settings.mqttTcpPort < 65536 && !string.IsNullOrWhiteSpace(Program.settings.mqttUser) && !string.IsNullOrWhiteSpace(Program.settings.mqttPass))
 			{
 				mqttReader = new MqttReader(Program.settings.mqttHost, Program.settings.mqttTcpPort, Program.settings.mqttUser, Program.settings.mqttPass);
+				mqttReader.OnError += MqttReader_OnError;
 				_ = mqttReader.Start();
 			}
 		}
+
+		private void MqttReader_OnError(object sender, string e)
+		{
+			Logger.Debug("WebServer.mqttReader OnError from " + (sender is MqttDevice ? (sender as MqttDevice).GetNameOrKey() : sender?.ToString()) + ": " + e);
+		}
+
 		public override bool shouldLogRequestsToFile()
 		{
 			return false;

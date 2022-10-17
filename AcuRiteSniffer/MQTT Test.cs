@@ -43,7 +43,7 @@ namespace AcuRiteSniffer
 
 		private void Reader_OnError(object sender, string e)
 		{
-			WriteLine("ERROR: " + e);
+			WriteLine("ERROR from " + (sender is MqttDevice ? (sender as MqttDevice).GetNameOrKey() : sender?.ToString()) + ": " + e);
 		}
 
 		private void Reader_OnStatusUpdate(object sender, string e)

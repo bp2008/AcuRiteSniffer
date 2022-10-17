@@ -36,6 +36,16 @@ namespace AcuRiteSniffer
 			}
 		}
 		/// <summary>
+		/// Gets the friendly Name, if available and non-whitespace, otherwise gets the Key.
+		/// </summary>
+		/// <returns></returns>
+		public string GetNameOrKey()
+		{
+			if (Program.settings.TryGetFriendlyDeviceName(Key, out string friendly) && !string.IsNullOrWhiteSpace(friendly))
+				return friendly;
+			return Key;
+		}
+		/// <summary>
 		/// UTC Timestamp provided by this device's "time" Prop.
 		/// </summary>
 		[JsonIgnore]
@@ -44,7 +54,12 @@ namespace AcuRiteSniffer
 			get
 			{
 				if (Props.TryGetValue("time", out string time) && DateTime.TryParseExact(time, "yyyy-M-d H:m:s", null, System.Globalization.DateTimeStyles.AssumeUniversal, out DateTime dt))
-					return dt;
+				{
+					if (dt > DateTime.UtcNow)
+						return DateTime.UtcNow;
+					else
+						return dt;
+				}
 				return null;
 			}
 		}
@@ -202,8 +217,6 @@ namespace AcuRiteSniffer
 			{
 				try
 				{
-					updated = Updated;
-
 					bool hasAnyWindData = false;
 					// Compute wind averages over time
 					double wind_dir_deg = 0;
@@ -472,7 +485,7 @@ namespace AcuRiteSniffer
 		}
 		private void DeviceErrorCallback(object sender, Exception ex)
 		{
-			OnError(this, ex.ToString());
+			OnError(sender, ex.ToString());
 		}
 
 		/// <summary>
