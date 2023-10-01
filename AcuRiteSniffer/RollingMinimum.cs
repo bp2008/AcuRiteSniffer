@@ -23,10 +23,11 @@ namespace AcuRiteSniffer
 			}
 		}
 
-		Queue<StoredValue> q = new Queue<StoredValue>();
+		readonly Queue<StoredValue> q = new Queue<StoredValue>();
 
 		public readonly long MillisecondWindowSize;
-		Stopwatch sw;
+		readonly Stopwatch sw;
+		readonly object myLock = new object();
 
 		/// <summary>
 		/// Constructs a RollingMinMaxAvg.
@@ -43,7 +44,7 @@ namespace AcuRiteSniffer
 			long now = sw.ElapsedMilliseconds;
 			while (true)
 			{
-				var o = q.Peek();
+				StoredValue o = q.Peek();
 				if (o != null && o.IsExpired(now, MillisecondWindowSize))
 					q.Dequeue();
 				else
@@ -56,8 +57,11 @@ namespace AcuRiteSniffer
 		/// <param name="val">Value to add to the internal collection.</param>
 		public void Add(double speed, double directionDegrees)
 		{
-			q.Enqueue(new StoredValue() { timestamp = sw.ElapsedMilliseconds, speed = speed, directionDegrees = directionDegrees });
-			Cleanup();
+			lock (myLock)
+			{
+				q.Enqueue(new StoredValue() { timestamp = sw.ElapsedMilliseconds, speed = speed, directionDegrees = directionDegrees });
+				Cleanup();
+			}
 		}
 		/// <summary>
 		/// Returns the smallest value that is currently being stored.
@@ -65,14 +69,17 @@ namespace AcuRiteSniffer
 		/// <returns></returns>
 		public StoredValue GetMinimum()
 		{
-			Cleanup();
-			StoredValue min = null;
-			foreach (StoredValue v in q)
+			lock (myLock)
 			{
-				if (min == null || v.speed <= min.speed)
-					min = v;
+				Cleanup();
+				StoredValue min = null;
+				foreach (StoredValue v in q)
+				{
+					if (min == null || v.speed <= min.speed)
+						min = v;
+				}
+				return min;
 			}
-			return min;
 		}
 		/// <summary>
 		/// Returns the largest value that is currently being stored.
@@ -80,14 +87,17 @@ namespace AcuRiteSniffer
 		/// <returns></returns>
 		public StoredValue GetMaximum()
 		{
-			Cleanup();
-			StoredValue max = null;
-			foreach (StoredValue v in q)
+			lock (myLock)
 			{
-				if (max == null || v.speed >= max.speed)
-					max = v;
+				Cleanup();
+				StoredValue max = null;
+				foreach (StoredValue v in q)
+				{
+					if (max == null || v.speed >= max.speed)
+						max = v;
+				}
+				return max;
 			}
-			return max;
 		}
 		/// <summary>
 		/// Returns the average of the values that are currently being stored.
@@ -95,10 +105,13 @@ namespace AcuRiteSniffer
 		/// <returns></returns>
 		public StoredValue GetAverage()
 		{
-			Cleanup();
-			double avgSpeed = q.Select(s => s.speed).Average();
-			double avgDirection = q.Select(s => s.directionDegrees).Average();
-			return new StoredValue() { speed = avgSpeed, directionDegrees = avgDirection };
+			lock (myLock)
+			{
+				Cleanup();
+				double avgSpeed = q.Select(s => s.speed).Average();
+				double avgDirection = q.Select(s => s.directionDegrees).Average();
+				return new StoredValue() { speed = avgSpeed, directionDegrees = avgDirection };
+			}
 		}
 	}
 }
