@@ -9,16 +9,17 @@ using BPUtil.SimpleHttp;
 using Newtonsoft.Json;
 using System.Text;
 using System.Collections.Generic;
+using BPUtil.SimpleHttp.Client;
 
 namespace AcuRiteSniffer
 {
 	public class WebServer : HttpServer
 	{
 		ConcurrentDictionary<string, SensorBase> sensorDataCollection = new ConcurrentDictionary<string, SensorBase>();
-		MqttReader mqttReader;
+		public static MqttReader mqttReader;
 		Regex rxGetURL = new Regex("(GET|POST) (/weatherstation/updateweatherstation\\?[^ ]*?) HTTP/1\\.", RegexOptions.Compiled & RegexOptions.Singleline);
 
-		public WebServer(int port = 45411, int httpsPort = -1) : base(port, httpsPort)
+		public WebServer()
 		{
 			if (!string.IsNullOrWhiteSpace(Program.settings.mqttHost) && Program.settings.mqttTcpPort > 0 && Program.settings.mqttTcpPort < 65536 && !string.IsNullOrWhiteSpace(Program.settings.mqttUser) && !string.IsNullOrWhiteSpace(Program.settings.mqttPass))
 			{
@@ -42,14 +43,14 @@ namespace AcuRiteSniffer
 		{
 			if (HandleRequestFromAcuriteAccessDevice(p))
 				return;
-			else if (p.requestedPage == "json")
+			else if (p.Request.Page == "json")
 			{
 				IEnumerable<object> sensors = BuildSensorList(p);
 				string str = JsonConvert.SerializeObject(sensors);
-				p.writeSuccess("application/json", HttpProcessor.Utf8NoBOM.GetByteCount(str), additionalHeaders: getAdditionalHeaders(), keepAlive: p.keepAliveRequested);
-				p.outputStream.Write(str);
+				p.Response.FullResponseUTF8(str, "application/json; charset=UTF-8");
+				SetAdditionalHeaders(p);
 			}
-			else if (p.requestedPage == "params")
+			else if (p.Request.Page == "params")
 			{
 				StringBuilder sb = new StringBuilder();
 				IEnumerable<object> sensors = BuildSensorList(p);
@@ -71,39 +72,40 @@ namespace AcuRiteSniffer
 					}
 				}
 				string str = sb.ToString();
-				p.writeSuccess(contentLength: HttpProcessor.Utf8NoBOM.GetByteCount(str), additionalHeaders: getAdditionalHeaders(), keepAlive: p.keepAliveRequested);
-				p.outputStream.Write(str);
+				p.Response.FullResponseUTF8(str, "text/html; charset=UTF-8");
+				SetAdditionalHeaders(p);
 			}
-			else if (p.requestedPage == "lastacuriteaccessrequests")
+			else if (p.Request.Page == "lastacuriteaccessrequests")
 			{
 				string str = "[\r\n" + string.Join("]\r\n\r\n***************************\r\n\r\n[\r\n", lastAcuriteAccessRequests.Select(i => i.ToString())) + "\r\n]\r\n";
-				p.writeSuccess("text/plain", HttpProcessor.Utf8NoBOM.GetByteCount(str), additionalHeaders: getAdditionalHeaders(), keepAlive: p.keepAliveRequested);
-				p.outputStream.Write(str);
+				p.Response.FullResponseUTF8(str, "text/plain; charset=UTF-8");
+				SetAdditionalHeaders(p);
 			}
-			else if (p.requestedPage == "getfriendlydevicenames")
+			else if (p.Request.Page == "getfriendlydevicenames")
 			{
 				string str = JsonConvert.SerializeObject(Program.settings.GetFriendlyDeviceNames(), Formatting.Indented);
-				p.writeSuccess("application/json", HttpProcessor.Utf8NoBOM.GetByteCount(str), additionalHeaders: getAdditionalHeaders(), keepAlive: p.keepAliveRequested);
-				p.outputStream.Write(str);
+				p.Response.FullResponseUTF8(str, "application/json; charset=UTF-8");
+				SetAdditionalHeaders(p);
 			}
-			else if (p.requestedPage == "setfriendlydevicename")
+			else if (p.Request.Page == "setfriendlydevicename")
 			{
-				string key = p.GetParam("key");
-				string value = p.GetParam("value");
+				string key = p.Request.GetParam("key");
+				string value = p.Request.GetParam("value");
 				if (!Program.settings.TrySetFriendlyDeviceName(key, value, out string errorMessage))
 				{
-					p.writeSuccess("text/plain", HttpProcessor.Utf8NoBOM.GetByteCount(errorMessage), responseCode: "400 Bad Request", additionalHeaders: getAdditionalHeaders(), keepAlive: p.keepAliveRequested);
-					p.outputStream.Write(errorMessage);
+					p.Response.FullResponseUTF8(errorMessage, "text/plain; charset=UTF-8", "400 Bad Request");
+					SetAdditionalHeaders(p);
 				}
 				else
 				{
-					p.writeSuccess("text/plain", 0, additionalHeaders: getAdditionalHeaders(), keepAlive: p.keepAliveRequested);
+					p.Response.FullResponseUTF8("", "text/plain; charset=UTF-8");
+					SetAdditionalHeaders(p);
 				}
 			}
 			else
 			{
 				List<DataFileTemplate> templates = Program.settings.GetSensorDataTemplates();
-				string pageLower = p.requestedPage.ToLower();
+				string pageLower = p.Request.Page.ToLower();
 				foreach (DataFileTemplate template in templates)
 				{
 					if (template.FileName.ToLower() == pageLower)
@@ -111,12 +113,13 @@ namespace AcuRiteSniffer
 						FileInfo fi = new FileInfo("SensorData/" + template.FileName);
 						if (fi.Exists)
 						{
-							p.writeSuccess("text/plain; charset=UTF-8", fi.Length, additionalHeaders: getAdditionalHeaders(), keepAlive: p.keepAliveRequested);
-							p.outputStream.Write(File.ReadAllText(fi.FullName, Encoding.GetEncoding(1252)));
+							p.Response.FullResponseUTF8(File.ReadAllText(fi.FullName, Encoding.GetEncoding(1252)), "text/plain; charset=UTF-8");
+							SetAdditionalHeaders(p);
 						}
 						else
 						{
-							p.writeFailure();
+							p.Response.Simple("404 Not Found");
+							SetAdditionalHeaders(p);
 						}
 						return;
 					}
@@ -206,15 +209,15 @@ function setDeviceFriendlyName(e, key, inputId)
 </body>
 </html>");
 				string str = sb.ToString();
-				p.writeSuccess(contentLength: HttpProcessor.Utf8NoBOM.GetByteCount(str), additionalHeaders: getAdditionalHeaders(), keepAlive: p.keepAliveRequested);
-				p.outputStream.Write(str);
+				p.Response.FullResponseUTF8(str, "text/html; charset=UTF-8");
+				SetAdditionalHeaders(p);
 			}
 		}
 
 		private IEnumerable<object> BuildSensorList(HttpProcessor p)
 		{
 			List<object> sensors = new List<object>();
-			string[] uniqueIds = p.GetParam("uniqueid").Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+			string[] uniqueIds = p.Request.GetParam("uniqueid").Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
 			if (uniqueIds.Length > 0)
 			{
 				HashSet<string> idHash = new HashSet<string>(uniqueIds);
@@ -252,14 +255,12 @@ function setDeviceFriendlyName(e, key, inputId)
 				return ((MqttDevice)o).Key;
 		}
 
-		private List<KeyValuePair<string, string>> getAdditionalHeaders()
+		private void SetAdditionalHeaders(HttpProcessor p)
 		{
-			List<KeyValuePair<string, string>> headers = new List<KeyValuePair<string, string>>();
-			headers.Add(new KeyValuePair<string, string>("Access-Control-Allow-Origin", "*"));
-			return headers;
+			p.Response.Headers.Add("Access-Control-Allow-Origin", "*");
 		}
 
-		public override void handlePOSTRequest(HttpProcessor p, StreamReader inputData)
+		public override void handlePOSTRequest(HttpProcessor p)
 		{
 			if (HandleRequestFromAcuriteAccessDevice(p))
 				return;
@@ -279,7 +280,7 @@ function setDeviceFriendlyName(e, key, inputId)
 			if (Program.settings.GetAcuriteAccessIPs().Contains(p.RemoteIPAddressStr))
 			{
 				ProxyDataBuffer proxiedDataBuffer = new ProxyDataBuffer();
-				p.ProxyTo("https://atlasapi.myacurite.com" + p.request_url.PathAndQuery, 30000, true, proxiedDataBuffer);
+				p.ProxyTo("https://atlasapi.myacurite.com" + p.Request.Url.PathAndQuery, 30000, true, proxiedDataBuffer);
 
 				lastAcuriteAccessRequests.Enqueue(proxiedDataBuffer);
 				if (lastAcuriteAccessRequests.Count > 10)

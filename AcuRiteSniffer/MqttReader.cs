@@ -227,21 +227,26 @@ namespace AcuRiteSniffer
 						hasAnyWindData = true;
 						windTrackerMi.Add(wind_speed_mph, wind_dir_deg);
 
+						Props["wind_avg_mi_h_i"] = Math.Round(wind_speed_mph).ToString();
+
 						RollingMinMaxAvg.StoredValue low = windTrackerMi.GetMinimum();
 						CompassDirection dir = Compass.GetCompassDirection((int)Math.Round(low.directionDegrees));
 						Props["wind_5min_low_mi_h"] = low.speed.ToString();
+						Props["wind_5min_low_mi_h_i"] = Math.Round(low.speed).ToString();
 						Props["wind_5min_low_mi_dir_abbr"] = dir.ToString();
 						Props["wind_5min_low_mi_dir_full"] = Compass.GetCompassDirectionName(dir);
 
 						RollingMinMaxAvg.StoredValue high = windTrackerMi.GetMaximum();
 						dir = Compass.GetCompassDirection((int)Math.Round(high.directionDegrees));
 						Props["wind_5min_high_mi_h"] = high.speed.ToString();
+						Props["wind_5min_high_mi_h_i"] = Math.Round(high.speed).ToString();
 						Props["wind_5min_high_mi_dir_abbr"] = dir.ToString();
 						Props["wind_5min_high_mi_dir_full"] = Compass.GetCompassDirectionName(dir);
 
 						RollingMinMaxAvg.StoredValue avg = windTrackerMi.GetAverage();
 						dir = Compass.GetCompassDirection((int)Math.Round(avg.directionDegrees));
 						Props["wind_5min_avg_mi_h"] = avg.speed.ToString();
+						Props["wind_5min_avg_mi_h_i"] = Math.Round(avg.speed).ToString();
 						Props["wind_5min_avg_mi_dir_abbr"] = dir.ToString();
 						Props["wind_5min_avg_mi_dir_full"] = Compass.GetCompassDirectionName(dir);
 					}
@@ -249,21 +254,26 @@ namespace AcuRiteSniffer
 					{
 						windTrackerKm.Add(wind_speed_kph, wind_dir_deg);
 
+						Props["wind_avg_km_h_i"] = Math.Round(wind_speed_kph).ToString();
+
 						RollingMinMaxAvg.StoredValue low = windTrackerKm.GetMinimum();
 						CompassDirection dir = Compass.GetCompassDirection((int)Math.Round(low.directionDegrees));
 						Props["wind_5min_low_km_h"] = low.speed.ToString();
+						Props["wind_5min_low_km_h_i"] = Math.Round(low.speed).ToString();
 						Props["wind_5min_low_km_dir_abbr"] = dir.ToString();
 						Props["wind_5min_low_km_dir_full"] = Compass.GetCompassDirectionName(dir);
 
 						RollingMinMaxAvg.StoredValue high = windTrackerKm.GetMaximum();
 						dir = Compass.GetCompassDirection((int)Math.Round(high.directionDegrees));
 						Props["wind_5min_high_km_h"] = high.speed.ToString();
+						Props["wind_5min_high_km_h_i"] = Math.Round(high.speed).ToString();
 						Props["wind_5min_high_km_dir_abbr"] = dir.ToString();
 						Props["wind_5min_high_km_dir_full"] = Compass.GetCompassDirectionName(dir);
 
 						RollingMinMaxAvg.StoredValue avg = windTrackerKm.GetAverage();
 						dir = Compass.GetCompassDirection((int)Math.Round(avg.directionDegrees));
 						Props["wind_5min_avg_km_h"] = avg.speed.ToString();
+						Props["wind_5min_avg_km_h_i"] = Math.Round(avg.speed).ToString();
 						Props["wind_5min_avg_km_dir_abbr"] = dir.ToString();
 						Props["wind_5min_avg_km_dir_full"] = Compass.GetCompassDirectionName(dir);
 					}
@@ -316,6 +326,8 @@ namespace AcuRiteSniffer
 
 		public void WriteFile(DataFileTemplate template)
 		{
+			if (MqttReader.DEBUG_LOG)
+				Logger.Info("(File) Evaluate Template " + template.ToString());
 			SetTimeout.OnBackground(() =>
 			{
 				try
@@ -336,10 +348,11 @@ namespace AcuRiteSniffer
 			}, 0, e => Logger.Debug(e));
 		}
 
-		private static Regex rxFileTemplate = new Regex("(##([^\\s]+)##)", RegexOptions.Compiled & RegexOptions.Singleline);
+		private static Regex rxFileTemplate = new Regex("(##([^#\\s]+)##)", RegexOptions.Compiled & RegexOptions.Singleline);
 		public string ApplyTemplate(string template)
 		{
-			return rxFileTemplate.Replace(template.Replace("\\n", Environment.NewLine), GetMatchedValue);
+			string output = rxFileTemplate.Replace(template.Replace("\\n", Environment.NewLine), GetMatchedValue);
+			return output;
 		}
 		private string GetMatchedValue(Match m)
 		{
@@ -349,13 +362,22 @@ namespace AcuRiteSniffer
 			if (k.Equals("DEVICE_NAME", StringComparison.OrdinalIgnoreCase))
 				return Name;
 			if (Props.TryGetValue(k, out string v))
+			{
+				if (MqttReader.DEBUG_LOG)
+					Logger.Info("Match " + k + "    ->     \"" + v + "\"");
 				return v;
+			}
 			else
+			{
+				if (MqttReader.DEBUG_LOG)
+					Logger.Info("No Match " + k + "    ->     \"" + v + "\"");
 				return "";
+			}
 		}
 	}
 	public class MqttReader : IDisposable
 	{
+		public const bool DEBUG_LOG = false;
 		public event EventHandler<string> OnError = delegate { };
 		public event EventHandler<string> OnStatusUpdate = delegate { };
 		public event EventHandler<object> OnDeviceUpdate = delegate { };
@@ -377,6 +399,14 @@ namespace AcuRiteSniffer
 			this.user = user;
 			this.pass = pass;
 
+			ReloadSensorDataTemplates();
+		}
+
+		/// <summary>
+		/// Reloads the text file templates from Program.settings.
+		/// </summary>
+		private void ReloadSensorDataTemplates()
+		{
 			templates = Program.settings.GetSensorDataTemplates();
 		}
 
@@ -495,6 +525,25 @@ namespace AcuRiteSniffer
 		public MqttDevice[] GetDevices()
 		{
 			return devices.Values.ToArray();
+		}
+
+		public string ApplyTemplatesForGUI()
+		{
+			StringBuilder sb = new StringBuilder();
+			ReloadSensorDataTemplates();
+			foreach (MqttDevice device in devices.Values)
+			{
+				foreach (DataFileTemplate template in templates)
+				{
+					if (device.Key == template.UniqueID || device.Name == template.UniqueID)
+					{
+						if (MqttReader.DEBUG_LOG)
+							Logger.Info("(GUI) Evaluate Template " + template.ToString());
+						sb.AppendLine(template.UniqueID + ":" + template.FileName + ": " + device.ApplyTemplate(template.TemplateStr));
+					}
+				}
+			}
+			return sb.ToString();
 		}
 
 		public void Dispose()

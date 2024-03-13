@@ -32,11 +32,11 @@ namespace AcuRiteSniffer
 		protected override void OnStart(string[] args)
 		{
 			OnStop();
-			
+
 			Program.settings.Load(Program.settingsPath);
 
-			svr = new WebServer(Program.settings.myWebPort, Program.settings.myHttpsPort);
-			svr.Start();
+			svr = new WebServer();
+			svr.SetBindings(Program.settings.myWebPort, Program.settings.myHttpsPort);
 		}
 
 		protected override void OnStop()
