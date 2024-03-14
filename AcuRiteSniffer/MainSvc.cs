@@ -36,6 +36,7 @@ namespace AcuRiteSniffer
 			Program.settings.Load(Program.settingsPath);
 
 			svr = new WebServer();
+			svr.EnableLogging(false);
 			svr.SetBindings(Program.settings.myWebPort, Program.settings.myHttpsPort);
 		}
 

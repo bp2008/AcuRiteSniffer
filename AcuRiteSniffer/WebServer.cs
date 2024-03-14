@@ -10,6 +10,9 @@ using Newtonsoft.Json;
 using System.Text;
 using System.Collections.Generic;
 using BPUtil.SimpleHttp.Client;
+using System.Net;
+using System.Security.Authentication;
+using BPUtil.SimpleHttp.TLS;
 
 namespace AcuRiteSniffer
 {
@@ -37,6 +40,16 @@ namespace AcuRiteSniffer
 		public override bool shouldLogRequestsToFile()
 		{
 			return false;
+		}
+
+		public override bool shouldLogSocketBind()
+		{
+			return true;
+		}
+
+		public override SslProtocols ChooseSslProtocols(IPAddress remoteIpAddress, SslProtocols defaultProtocols)
+		{
+			return TlsNegotiate.Tls13 | SslProtocols.Tls12 | SslProtocols.Tls11 | SslProtocols.Tls;
 		}
 
 		public override void handleGETRequest(HttpProcessor p)
@@ -77,7 +90,8 @@ namespace AcuRiteSniffer
 			}
 			else if (p.Request.Page == "lastacuriteaccessrequests")
 			{
-				string str = "[\r\n" + string.Join("]\r\n\r\n***************************\r\n\r\n[\r\n", lastAcuriteAccessRequests.Select(i => i.ToString())) + "\r\n]\r\n";
+				string str = "Last 50 Requests:\r\n\r\n" + string.Join("\r\n", lastAcuriteAccessRequestStrings) + "\r\n\r\nLast 10 Requests (Detailed):\r\n\r\n"
+					+ "[\r\n" + string.Join("]\r\n\r\n***************************\r\n\r\n[\r\n", lastAcuriteAccessRequests.Select(i => i.ToString())) + "\r\n]\r\n";
 				p.Response.FullResponseUTF8(str, "text/plain; charset=UTF-8");
 				SetAdditionalHeaders(p);
 			}
@@ -269,6 +283,7 @@ function setDeviceFriendlyName(e, key, inputId)
 		{
 		}
 
+		ConcurrentQueue<string> lastAcuriteAccessRequestStrings = new ConcurrentQueue<string>();
 		ConcurrentQueue<ProxyDataBuffer> lastAcuriteAccessRequests = new ConcurrentQueue<ProxyDataBuffer>();
 		/// <summary>
 		/// If the remote IP address is that of a known Acurite Access device, we will sniff whatever data we want from it and proxy the request to Acurite.
@@ -279,14 +294,41 @@ function setDeviceFriendlyName(e, key, inputId)
 		{
 			if (Program.settings.GetAcuriteAccessIPs().Contains(p.RemoteIPAddressStr))
 			{
-				ProxyDataBuffer proxiedDataBuffer = new ProxyDataBuffer();
-				p.ProxyTo("https://atlasapi.myacurite.com" + p.Request.Url.PathAndQuery, 30000, true, proxiedDataBuffer);
+				string url = "https://atlasapi.myacurite.com" + p.Request.Url.PathAndQuery;
+				lastAcuriteAccessRequestStrings.Enqueue(p.RemoteIPAddressStr + " -> " + url);
+				if (lastAcuriteAccessRequestStrings.Count > 50)
+					lastAcuriteAccessRequestStrings.TryDequeue(out string removedStr);
 
-				lastAcuriteAccessRequests.Enqueue(proxiedDataBuffer);
+				ProxyOptions options = new ProxyOptions();
+				options.snoopy = new ProxyDataBuffer();
+				options.acceptAnyCert = true;
+				options.allowConnectionKeepalive = false;
+				options.allowGatewayTimeoutResponse = false;
+				options.connectTimeoutMs = 15000;
+				options.networkTimeoutMs = 30000;
+				options.longReadTimeoutMinutes = 1;
+				try
+				{
+					if (true)
+					{
+						p.ProxyTo(url, 30000, options.acceptAnyCert, options.snoopy);
+					}
+					else
+					{
+						TaskHelper.RunAsyncCodeSafely(() => p.ProxyToAsync(url, options));
+					}
+				}
+				catch (Exception ex)
+				{
+					p.Response.CloseWithoutResponse();
+					return true;
+				}
+
+				lastAcuriteAccessRequests.Enqueue(options.snoopy);
 				if (lastAcuriteAccessRequests.Count > 10)
 					lastAcuriteAccessRequests.TryDequeue(out ProxyDataBuffer removed);
 
-				foreach (string str in proxiedDataBuffer.Items.Select(i => i.PayloadAsString))
+				foreach (string str in options.snoopy.Items.Select(i => i.PayloadAsString))
 				{
 					Match m = rxGetURL.Match(str);
 					if (m.Success)
